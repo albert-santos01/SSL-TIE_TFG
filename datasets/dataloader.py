@@ -24,7 +24,8 @@ import scipy.io.wavfile as wav
 from scipy import signal
 import random
 import soundfile as sf
-torchaudio.set_audio_backend("sox_io")
+torchaudio.set_audio_backend("soundfile") # for Windows
+# torchaudio.set_audio_backend("sox_io") # for Linux/MacOS
 sys.path.append('./datasets/')
 
 

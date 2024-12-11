@@ -38,3 +38,5 @@ def main(args):
 ```
 
 AVENet is the model being used which comes as imported from `model.py` [`main.py`, line 29](./main.py#L29)
+
+It is important to note that the code assumes an evironment variable `CUDA_VISIBLE_DEVICES` to be set. If it is not set, it will raise an error to set it to `args.gpus`, changed at the commit of [`Edit to handle the gpu compability`](https://github.com/jinxiang-liu/SSL-TIE/commit/9d753366b3dc5e3b16cb3169fbc185ae3a1416ac) alongside with some modifications to ensure the initialization of Cuda context.

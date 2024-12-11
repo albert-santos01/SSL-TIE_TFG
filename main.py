@@ -1,4 +1,7 @@
+import warnings
+warnings.filterwarnings("ignore")
 import os
+import socket
 import sys
 from kornia.geometry.transform.affwarp import scale
 from numpy.lib.type_check import imag
@@ -14,8 +17,6 @@ from torch.utils.data import Dataset, DataLoader, dataset
 from tensorboardX import SummaryWriter
 
 import torch.nn.functional as F
-import warnings
-warnings.filterwarnings("ignore")
 import numpy as np
 import random
 import json
@@ -425,16 +426,25 @@ def test(test_loader, model, criterion, device, epoch, args):
 
 
 def main(args):
+    # To Ensure Cuda context
+    print("Is cuda available",torch.cuda.is_available()) 
+
     if args.gpus is None:
+        if "CUDA_VISIBLE_DEVICES" not in os.environ:
+            raise EnvironmentError("CUDA_VISIBLE_DEVICES environment variable is not set.")
         args.gpus = str(os.environ["CUDA_VISIBLE_DEVICES"])
     else:
         os.environ["CUDA_VISIBLE_DEVICES"]=str(args.gpus)
         args.gpus = list(range(torch.cuda.device_count()))
-
     if args.debug:
         args.n_threads=0
 
-    args.host_name = os.uname()[1]
+    # args.host_name = os.uname()[1] # For windows does not work
+    args.host_name = socket.gethostname()
+
+
+    print('Number of GPUs:', len(args.gpus))
+    
     device = torch.device('cuda:1') if len(args.gpus) > 1 else torch.device('cuda:0')
 
     best_acc = 0

@@ -244,8 +244,9 @@ class Logger(object):
     '''write something to txt file'''
     def __init__(self, path):
         self.birth_time = datetime.now()
-        filepath = os.path.join(path, self.birth_time.strftime('%Y-%m-%d-%H:%M:%S')+'.log')
+        filepath = os.path.join(path, self.birth_time.strftime('%Y-%m-%d_%H-%M-%S')+'.log')
         self.filepath = filepath
+        print('log file: %s' % filepath)
         with open(filepath, 'a') as f:
             f.write(self.birth_time.strftime('%Y-%m-%d %H:%M:%S')+'\n')
 

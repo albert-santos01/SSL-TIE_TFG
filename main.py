@@ -481,10 +481,11 @@ def main(args):
             print("[Warning] no checkpoint found at '{}'".format(args.test))
             epoch = 0
 
-        logger_path = os.path.join(os.path.dirname(args.test),'../img/logs/test' )
+        logger_path = os.path.abspath(os.path.join('../img/logs/test', os.path.dirname(args.test))) # modified
         # logger_path = os.path.join(args.img_path, 'logs', 'test')
         if not os.path.exists(logger_path):
             os.makedirs(logger_path)
+
 
         args.test_logger = Logger(path=logger_path)
         args.test_logger.log('args=\n\t\t'+'\n\t\t'.join(['%s:%s'%(str(k),str(v)) for k,v in vars(args).items()]))

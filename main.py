@@ -1,8 +1,19 @@
-import warnings
-warnings.filterwarnings("ignore")
 import os
 import socket
 import sys
+import warnings
+
+# Ignore all warnings of any type
+warnings.filterwarnings("ignore")
+
+print("Silencing all warnings!")
+# Save original stderr
+original_stderr = sys.stderr
+
+# Redirect stderr to a "black hole" (null device)
+sys.stderr = open(os.devnull, 'w')
+
+# Import modules (silently)
 from kornia.geometry.transform.affwarp import scale
 from numpy.lib.type_check import imag
 import torch
@@ -43,6 +54,13 @@ from utils.tf_equivariance_loss import TfEquivarianceLoss
 import utils.tensorboard_utils as TB
 from utils.utils import save_checkpoint, AverageMeter, write_log, calc_topk_accuracy, \
     denorm, batch_denorm, Logger, ProgressMeter, neq_load_customized, strfdelta
+
+
+# Restore original stderr
+sys.stderr.close()
+sys.stderr = original_stderr
+
+print("Back to normal logging!")
 
 
 def normalize_img(value, vmax=None, vmin=None):
@@ -480,16 +498,18 @@ def main(args):
         else:
             print("[Warning] no checkpoint found at '{}'".format(args.test))
             epoch = 0
-
-        logger_path = os.path.abspath(os.path.join('../img/logs/test', os.path.dirname(args.test))) # modified
+        print("Current execution path:", os.getcwd())
+        logger_path = os.path.abspath(os.path.join(os.path.join(os.getcwd(),'img/logs/test'), os.path.dirname(args.test))) # modified
         # logger_path = os.path.join(args.img_path, 'logs', 'test')
+        print(logger_path)
+
+        raise NotImplementedError('Testing not implemented yet')
         if not os.path.exists(logger_path):
             os.makedirs(logger_path)
 
 
         args.test_logger = Logger(path=logger_path)
         args.test_logger.log('args=\n\t\t'+'\n\t\t'.join(['%s:%s'%(str(k),str(v)) for k,v in vars(args).items()]))
-
         if args.dataset_mode == 'VGGSound':
             test_dataset = GetAudioVideoDataset(args, mode='test' if args.test_set == 'VGGSS' else 'val')
         elif args.dataset_mode == 'Flickr':

@@ -6,7 +6,7 @@ import warnings
 # Ignore all warnings of any type
 warnings.filterwarnings("ignore")
 
-print("Silencing all warnings!")
+print("Silencing warnings from modules...")
 # Save original stderr
 original_stderr = sys.stderr
 
@@ -60,7 +60,7 @@ from utils.utils import save_checkpoint, AverageMeter, write_log, calc_topk_accu
 sys.stderr.close()
 sys.stderr = original_stderr
 
-print("Back to normal logging!")
+# print("Back to normal logging!")
 
 
 def normalize_img(value, vmax=None, vmin=None):
@@ -503,7 +503,6 @@ def main(args):
         # logger_path = os.path.join(args.img_path, 'logs', 'test')
         print(logger_path)
 
-        raise NotImplementedError('Testing not implemented yet')
         if not os.path.exists(logger_path):
             os.makedirs(logger_path)
 

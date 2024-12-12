@@ -72,6 +72,132 @@ Next part of the main.py for testing:
 Here basically the code is loading a checkpoint file and testing the model with the provided weights. The logger is used to log the results of the test. The loader assumes the weights, in this case, alledgely a tar file `vggsound144k.pth.tar`. However, the logger has been modified to work with windows, errors like invalid path were not expected. Commit [Change logger to work with windows](https://github.com/albert-santos01/SSL-TIE_TFG/commit/749b6f0d91ef258442affeaf3cc5b8224675ff89) was made to fix this issue. 
 - Also it is weird that they want use the directory of the checkpoint to name the 
 
-11/12/2024
-Next task is to find a way to filter all the warnings better and to put the dataset for testing.
+Next, the code will load the data and start the test
+```python
+        if args.dataset_mode == 'VGGSound':
+            test_dataset = GetAudioVideoDataset(args, mode='test' if args.test_set == 'VGGSS' else 'val')
+        elif args.dataset_mode == 'Flickr':
+            test_dataset = GetAudioVideoDataset(args, mode='test')
+
+        test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False,\
+            num_workers=args.n_threads, pin_memory=True)
+        
+        test(test_loader, model, criterion, device, epoch, args )
+```	
+[`main.py, Line 512`](./main.py#L512)
+
+Where the definition of GetAudioVideoDataset is in the file `dataloader.py` at `datasets` folder. The following is its definition, with the relevant part for the test set, the rest is hidden for brevity.
+
+### GetAudioVideoDataset (dataloader.py)
+```python
+class GetAudioVideoDataset(Dataset):
+
+    def __init__(self, args, mode='train', transforms=None):
+ 
+        data = []
+        self.args = args
+
+        if args.dataset_mode == 'VGGSound':
+            args.trainset_path = args.trainset_path
+        elif args.dataset_mode == 'Flickr':
+            args.trainset_path = args.Flickr_trainset_path
+
+        # Debug with a small dataset
+        if args.debug: # what they do is to track specific images I think
+           ...
+
+        else:
+            if args.dataset_mode == 'VGGSound':
+                if mode=='train':
+                  ...
+                elif mode=='test':
+                    with open('metadata/test_vggss_4911.txt','r') as f:
+                        txt_reader = f.readlines()
+                        for item in txt_reader[:]:
+                            data.append(item.split('.')[0])
+                        self.audio_path = args.vggss_test_path + '/audio/'
+                        self.video_path = args.vggss_test_path + '/frame/'
+                elif ...
+
+        self.imgSize = args.image_size 
+
+        self.AmplitudeToDB = audio_T.AmplitudeToDB()
+
+        self.mode = mode
+        self.transforms = transforms
+        # initialize video transform
+        self._init_atransform()
+        self._init_transform()
+        #  Retrieve list of audio and video files
+        self.video_files = []
+
+        for item in data[:]:
+            self.video_files.append(item )
+
+        print("{0} dataset size: {1}".format(self.mode.upper() , len(self.video_files)))
+        
+        self.count = 0 
+    ...
+
+    def __len__(self):
+        return len(self.video_files)  # self.length
+
+    def __getitem__(self, idx):
+        file = self.video_files[idx]
+
+        if self.args.dataset_mode == 'VGGSound':
+            if self.mode == 'train':
+                ...
+            elif self.mode in ['test', 'val'] :
+                frame = self.img_transform(self._load_frame( os.path.join(self.video_path , file + '.jpg')  ))
+                frame_ori = np.array(self._load_frame(os.path.join(self.video_path, file + '.jpg')))
+                samples, samplerate = torchaudio.load(os.path.join(self.audio_path, file + '.wav'))
+        
+        ### For Flickr_SoundNet training: 
+        elif self.args.dataset_mode == 'Flickr':
+            ...
+
+        if samples.shape[1] < samplerate * 10:
+            n = int(samplerate * 10 / samples.shape[1]) + 1
+            samples = samples.repeat(1, n)
+
+        samples = samples[...,:samplerate*10]
+
+        spectrogram  =  audio_T.MelSpectrogram(
+                sample_rate=samplerate,
+                n_fft=512,
+                hop_length=239, 
+                n_mels=257,
+                normalized=True
+            )(samples)
+        
+        if (self.args.aud_aug=='SpecAug') and (self.mode=='train') and (random.random() < 0.8):
+            maskings = nn.Sequential(
+                audio_T.TimeMasking(time_mask_param=180),
+                audio_T.FrequencyMasking(freq_mask_param=35)
+                )
+            spectrogram = maskings(spectrogram)
+
+        spectrogram = self.AmplitudeToDB(spectrogram)
+
+
+        return frame, spectrogram, 'samples', file, torch.tensor(frame_ori)
+```
+[`dataloader.py, Line 44`](./datasets/dataloader.py#L44)
+
+Presumably here is where the tranformations begin and the data is loaded. Things to note:
+- The text file `metadata/test_vggss_4911.txt` contains at each line the name of the file like `nqd6uO6hDSo_000030.jpg` and then this is split to get the name of the file without the extension saved at the attribute `video_files`.
+
+Later the main.py creates the DataLoader object with the test_dataset that obtained from the GetAudioVideoDataset class; and this new object is imported from the torch.utils.data library. An idea of this process could be obtained from the following webpage: [Pytorch DataLoader, Creating a Custom Dataset for your files](https://pytorch.org/tutorials/beginner/basics/data_tutorial.html#creating-a-custom-dataset-for-your-files)
+
+What we can understand from this is that GetAudioVideoDataset is a class that inherits from the Dataset class from the torch.utils.data library. This one its attibrutes and methods will create the dataset as desired. From this one could consider that:
+- the data has to be stored at the `args.vggss_test_path` directory ('dir_of_vggsound_testset')
+- the other two important methods are `__len__` and `__getitem__` which are used to get the length of the dataset and to get the data at a specific index respectively.
+- From the `__getitem__` method one can see that the method returns the frame, the spectrogram, the samples, the file name and the original frame.
+- Everything should be stored at the `args.vggss_test_path` directory because video_path and audio_path are defined as that.
+- With the audio, (the samples operation) they are repeating the audio to have a length of at least 10 seconds, then they take the first 10 seconds of the audio.
+- The frame goes through the img_transform method which is defined in the same file, and the audio goes through the MelSpectrogram transformation which is defined in the `audio_T` module.
+
+
+
 

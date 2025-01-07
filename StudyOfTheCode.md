@@ -2,7 +2,7 @@
 Here we study the code of the model SSL-TIE. We start with the `main.py` file in order to run the model and see if it works. The procedure will be to run the model with the provided weights and data; maybe we test it and provide the results to verify that the model is working as expected.
 
 ## MAIN main.py
-directly to def main() function, [`main.py`, line 427](./main.py#L427)
+directly to def main() function, [`main.py`, line 446](./main.py#L446)
 
 ```python
 def main(args):
@@ -70,7 +70,7 @@ Next part of the main.py for testing:
 ```
 
 Here basically the code is loading a checkpoint file and testing the model with the provided weights. The logger is used to log the results of the test. The loader assumes the weights, in this case, alledgely a tar file `vggsound144k.pth.tar`. However, the logger has been modified to work with windows, errors like invalid path were not expected. Commit [Change logger to work with windows](https://github.com/albert-santos01/SSL-TIE_TFG/commit/749b6f0d91ef258442affeaf3cc5b8224675ff89) was made to fix this issue. 
-- Also it is weird that they want use the directory of the checkpoint to name the 
+- Also it is strange that they want use the directory of the checkpoint to name the logger
 
 Next, the code will load the data and start the test
 ```python
@@ -199,5 +199,18 @@ What we can understand from this is that GetAudioVideoDataset is a class that in
 - The frame goes through the img_transform method which is defined in the same file, and the audio goes through the MelSpectrogram transformation which is defined in the `audio_T` module.
 
 
+Thins to do Right NOW:
+- [ ] Try to run the model again
+- [ ] Upload the test set
+- [ ] Upload the weights
+- [ ] Run the model with the test set and weights
+- [ ] Check the logger and see if it works
 
+Aparently everything is working, but from now on I haven't downloaded nothing about the data.
 
+### VGGSound dataset
+The VGGSound dataset is a large-scale dataset for audio-visual learning, containing 2.1 million YouTube videos with more than 310 classes. To download the dataset you need the csv file `vggsound.csv` which is available at the [VGGSound website](https://www.robots.ox.ac.uk/~vgg/data/vggsound/). Each line of the csv file contains:
+```
+# YouTube ID, start seconds, label, train/test split. 
+```
+So with this information one can download the videos from YouTube and then extract the audio and frames from the videos. To do that, it is recommended to use [audiosetdl](https://github.com/speedyseal/audiosetdl), which is a repository from the University of Oxford that provides modules and scripts to download Google's AudioSet dataset.

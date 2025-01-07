@@ -214,3 +214,11 @@ The VGGSound dataset is a large-scale dataset for audio-visual learning, contain
 # YouTube ID, start seconds, label, train/test split. 
 ```
 So with this information one can download the videos from YouTube and then extract the audio and frames from the videos. To do that, it is recommended to use [audiosetdl](https://github.com/speedyseal/audiosetdl), which is a repository from the University of Oxford that provides modules and scripts to download Google's AudioSet dataset.
+
+It seems that it will take us a long time and we need to create scripts to download the data, therefore, here it is the roadmad for the next days: 
+1.	Descargar ffmpeg, python en el wsl
+2.	Hacer Código para descargar VGGSound o mirar como utilizar el Flickr-SoundNet
+3.	Hacer test
+4.	Releerse DenseAV
+5.	Intentar redireccionar TFG
+

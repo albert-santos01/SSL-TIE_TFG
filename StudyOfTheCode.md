@@ -222,3 +222,18 @@ It seems that it will take us a long time and we need to create scripts to downl
 4.	Releerse DenseAV
 5.	Intentar redireccionar TFG
 
+08/11/2025
+
+Well I did install ffmpeg and python in the wsl, and I tried to do the code to install VGGSound, but I couldn't do it yet. The main problems is that the repository that is suggested for the downloading it is based on MacOS, I tried to do it in the wsl then I had huge problems with youtube-dl vs yt-dlp,  because the repository uses pafy which its backend is youtube-dl which is not working well anymore.
+Things i tried:
+- At the WSL, install youtube-dl and pafy with default version, but cannot find any video
+- Install the miniconda that they suggest, with the correspondent python requirements, but it outputing NONE
+- Install yt-dlp and do it manully, and it finds the video and downloads it. However a full change of code should be done.
+
+
+Things I could do:
+- forget about VGGSound and use Flickr-SoundNet
+- ask about VGGSound to Xavier
+- try to do the code for VGGSound in the wsl
+    - Change pafy code with things like ``import yt_dlp as pafy``
+    - Do a whole code with yt-dlp

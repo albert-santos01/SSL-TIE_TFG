@@ -243,7 +243,7 @@ class GetAudioVideoDataset(Dataset):
             elif self.mode in ['test', 'val'] :
                 frame = self.img_transform(self._load_frame( os.path.join(self.video_path , file + '.jpg')  ))
                 frame_ori = np.array(self._load_frame(os.path.join(self.video_path, file + '.jpg')))
-                samples, samplerate = torchaudio.load(os.path.join(self.audio_path, file + '.mp3'))
+                # samples, samplerate = torchaudio.load(os.path.join(self.audio_path, file + '.mp3'))
                 samples, samplerate = torchaudio.load(os.path.join(self.audio_path, file + '.wav'))
 
 

@@ -6,7 +6,7 @@ import warnings
 # Ignore all warnings of any type
 warnings.filterwarnings("ignore")
 
-print("Silencing warnings from modules...")
+# print("Silencing warnings from modules...")
 # Save original stderr
 original_stderr = sys.stderr
 

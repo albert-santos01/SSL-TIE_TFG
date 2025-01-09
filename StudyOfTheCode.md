@@ -253,3 +253,15 @@ class GetAudioVideoDataset(Dataset):
 Therefore `jpg` and `mp3` files are expected to be found in the `dir_of_SoundNet_Test_Data` directory. The `test_flickr_250.txt` file contains the names of the files without the extension.
 
 **IMPORTANT** Due to that the this repository uses ``sox_io`` as the backend for ``torchaudio==0.7.2`` and OS that thesis is being developed is Windows we have to change the processing from `mp3` to `wav`, changed at the commit [from mp3 to wav for Flickr-SoundNet dataset](https://github.com/albert-santos01/SSL-TIE_TFG/commit/f94ece4f6b04bed44dc722263d2795d4c4e66bdc)
+
+### Test of the model
+The test was finally done and the results were as follows:
+```shell
+TEST dataset size: 249
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████| 249/249 [01:04<00:00,  3.89it/s] 
+Test:    Epoch: [33]    Loss: 0.0375 Acc@1: 0.0000 Acc@5: 0.0000 MeancIoU: 0.7791 AUC: 0.5927
+```
+This is the model Flickr10K tested agaist the Flickr-SoundNet dataset. The values of the paper are:
+            mean cIoU  AUC
+Ours Flickr-10k 0.755 0.588
+Obtained today: 0.779 0.5927

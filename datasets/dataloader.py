@@ -137,7 +137,8 @@ class GetAudioVideoDataset(Dataset):
                         txt_reader = f.readlines()
                         for item in txt_reader:
                             data.append(item.split('.')[0])
-                        self.audio_path = args.soundnet_test_path + '/mp3/'
+                        # self.audio_path = args.soundnet_test_path + '/mp3/'
+                        self.audio_path = args.soundnet_test_path + '/wav/'
                         self.video_path = args.soundnet_test_path + '/frame/'
                 
 
@@ -243,6 +244,7 @@ class GetAudioVideoDataset(Dataset):
                 frame = self.img_transform(self._load_frame( os.path.join(self.video_path , file + '.jpg')  ))
                 frame_ori = np.array(self._load_frame(os.path.join(self.video_path, file + '.jpg')))
                 samples, samplerate = torchaudio.load(os.path.join(self.audio_path, file + '.mp3'))
+                samples, samplerate = torchaudio.load(os.path.join(self.audio_path, file + '.wav'))
 
 
         if samples.shape[1] < samplerate * 10:

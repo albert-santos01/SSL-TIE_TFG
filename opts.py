@@ -44,7 +44,8 @@ def get_arguments():
     parser.add_argument('--write-summarys', action='store_true')
     parser.set_defaults(write_summarys=True)
     parser.add_argument('--weight_decay', default=1e-4, type=float, help='Weight Decay')
-    parser.add_argument('--n_threads', default=16, type=int,help='Number of threads for multi-thread loading')
+#     parser.add_argument('--n_threads', default=16, type=int,help='Number of threads for multi-thread loading')
+    parser.add_argument('--n_threads', default=8, type=int,help='Number of threads for multi-thread loading') #Because in my computer, I have 8 cores
     parser.add_argument('--epi_decay', action='store_true', help='two episons decay, no need for the experiment')
     parser.add_argument('--load_pretrain', action='store_true', help='Load pretrained model weights')
     parser.add_argument('--flow', action='store_true', help='  ' )

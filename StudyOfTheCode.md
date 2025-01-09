@@ -209,31 +209,45 @@ Thins to do Right NOW:
 Aparently everything is working, but from now on I haven't downloaded nothing about the data.
 
 ### VGGSound dataset
-The VGGSound dataset is a large-scale dataset for audio-visual learning, containing 2.1 million YouTube videos with more than 310 classes. To download the dataset you need the csv file `vggsound.csv` which is available at the [VGGSound website](https://www.robots.ox.ac.uk/~vgg/data/vggsound/). Each line of the csv file contains:
+The VGGSound dataset is a large-scale dataset for audio-visual learning, containing 200,000 YouTube videos with more than 310 classes. To download the dataset you need the csv file `vggsound.csv` which is available at the [VGGSound website](https://www.robots.ox.ac.uk/~vgg/data/vggsound/). Each line of the csv file contains:
 ```
 # YouTube ID, start seconds, label, train/test split. 
 ```
 So with this information one can download the videos from YouTube and then extract the audio and frames from the videos. To do that, it is recommended to use [audiosetdl](https://github.com/speedyseal/audiosetdl), which is a repository from the University of Oxford that provides modules and scripts to download Google's AudioSet dataset.
 
-It seems that it will take us a long time and we need to create scripts to download the data, therefore, here it is the roadmad for the next days: 
-1.	Descargar ffmpeg, python en el wsl
-2.	Hacer Código para descargar VGGSound o mirar como utilizar el Flickr-SoundNet
-3.	Hacer test
-4.	Releerse DenseAV
-5.	Intentar redireccionar TFG
+It seems that it will take us a long time and we need to create scripts to download the data
 
-08/11/2025
+### Flickr-SoundNet dataset
+Due to the time spent and the complexity of the VGGSound dataset, we decided to use the Flickr-SoundNet dataset instead just for doing the test of the model.
 
-Well I did install ffmpeg and python in the wsl, and I tried to do the code to install VGGSound, but I couldn't do it yet. The main problems is that the repository that is suggested for the downloading it is based on MacOS, I tried to do it in the wsl then I had huge problems with youtube-dl vs yt-dlp,  because the repository uses pafy which its backend is youtube-dl which is not working well anymore.
-Things i tried:
-- At the WSL, install youtube-dl and pafy with default version, but cannot find any video
-- Install the miniconda that they suggest, with the correspondent python requirements, but it outputing NONE
-- Install yt-dlp and do it manully, and it finds the video and downloads it. However a full change of code should be done.
+The Flickr-SoundNet is provided by Senocak in the repository [learning_to_localize_sound_source](https://github.com/ardasnck/learning_to_localize_sound_source). The dataset in order to be used for testing it should be stored in a folder called `dir_of_SoundNet_Test_Data` as demaned in the [test_Flickr10.sh](./scripts/test_Flickr10k.sh). 
+The instances required for testing are written in the ``test_flickr_250.txt``, regardless the amount inquired by the script. 
+```python
 
+class GetAudioVideoDataset(Dataset):
+    def __init__(self, args, mode='train', transforms=None):
+        ...
+            elif args.dataset_mode == 'Flickr':
+                if mode == 'train': ...
+                elif mode == 'test':
+                    with open('metadata/test_flickr_250.txt','r') as f:
+                        txt_reader = f.readlines()
+                        for item in txt_reader:
+                            data.append(item.split('.')[0])
+                        self.audio_path = args.soundnet_test_path + '/mp3/'
+                        self.video_path = args.soundnet_test_path + '/frame/'
+    ...
 
-Things I could do:
-- forget about VGGSound and use Flickr-SoundNet
-- ask about VGGSound to Xavier
-- try to do the code for VGGSound in the wsl
-    - Change pafy code with things like ``import yt_dlp as pafy``
-    - Do a whole code with yt-dlp
+    def __getitem__(self, idx):
+        file = self.video_files[idx]
+        ### For Flickr_SoundNet training: 
+        elif self.args.dataset_mode == 'Flickr':
+            if self.mode == 'train': ...
+            elif self.mode in ['test', 'val'] :
+                frame = self.img_transform(self._load_frame( os.path.join(self.video_path , file + '.jpg')  ))
+                frame_ori = np.array(self._load_frame(os.path.join(self.video_path, file + '.jpg')))
+                samples, samplerate = torchaudio.load(os.path.join(self.audio_path, file + '.mp3'))
+```
+[`dataloader.py, Line 44`](./datasets/dataloader.py#L44)
+
+Therefore `jpg` and `mp3` files are expected to be found in the `dir_of_SoundNet_Test_Data` directory. The `test_flickr_250.txt` file contains the names of the files without the extension.

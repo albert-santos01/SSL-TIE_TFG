@@ -251,3 +251,5 @@ class GetAudioVideoDataset(Dataset):
 [`dataloader.py, Line 44`](./datasets/dataloader.py#L44)
 
 Therefore `jpg` and `mp3` files are expected to be found in the `dir_of_SoundNet_Test_Data` directory. The `test_flickr_250.txt` file contains the names of the files without the extension.
+
+**IMPORTANT** Due to that the this repository uses ``sox_io`` as the backend for ``torchaudio==0.7.2`` and OS that thesis is being developed is Windows we have to change the processing from `mp3` to `wav`, changed at the commit [from mp3 to wav for Flickr-SoundNet dataset](https://github.com/albert-santos01/SSL-TIE_TFG/commit/f94ece4f6b04bed44dc722263d2795d4c4e66bdc)

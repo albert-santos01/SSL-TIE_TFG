@@ -4,3 +4,4 @@ ckpts/
 ubvenv/
 datasets/soundnet/
 dir_of_SoundNet_Test_Data/
+experiments.ipynb

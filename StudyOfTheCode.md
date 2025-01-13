@@ -261,10 +261,10 @@ TEST dataset size: 249
 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████| 249/249 [01:04<00:00,  3.89it/s] 
 Test:    Epoch: [33]    Loss: 0.0375 Acc@1: 0.0000 Acc@5: 0.0000 MeancIoU: 0.7791 AUC: 0.5927
 ```
-This is the model Flickr10K tested agaist the Flickr-SoundNet dataset. The values of the paper are:
-
-            mean cIoU  AUC
-
-Ours Flickr-10k 0.755 0.588
-
-Obtained today: 0.779 0.5927
+This is the model Flickr10K tested agaist the Flickr-SoundNet dataset. Testing as well with the Flickr144k the final values obtained and the paper are:
+|                 | cIoU  | AUC   |
+|-----------------|-------|-------|
+| Them Flickr10k  | 0.755 | 0.588 |
+| Me   Flickr10k  | 0.779 | 0.593 |
+| Them Flickr144k | 0.815 | 0.611 |
+| Me   Flickr144k | 0.823 | 0.614 |

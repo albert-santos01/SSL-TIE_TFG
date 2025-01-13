@@ -60,3 +60,23 @@ Conversely, what makes a model different from the other is its training. All of 
 and its losses functions, (The way that the model learns). Hence, to test is basically forward, get its output and analyse it against a benchmark.
 
 
+### 13/01/2025:
+
+Plan of the day:
+1. Read the Dense AV
+2. See if I can download PlacesAudio
+3. Catch up from what gloria and I talked about doing at the end
+4. read Clip-denoiser
+5. have a plan for tomorrows meeting
+6. write letter to the bsc and email to inetum.
+
+By reading again DenseAV's, it is easy to recognize that this model is huge and relies on a lot of parameters since it has multihead attention. Still I have to understand what is the cls token, but both backbones are transformers. One interesting point is that penalizes when multiple attention head are activated(3.4 disentaglement Regularizer).
+
+**2016 - Harwath - (PlacesAudio) Unsupervised Learning of Spoken Languag with Visual Context**
+After reading it, I was lead to read the paper of PlacesAudio, which in it describes a model  which is capable of associating speech audio captions with images. Amazingly, it does not require a such big architechure compared to the DenseAV, so it gives hope for the development of the thesis.
+
+Regarding the dataset, this one is obtained from a subset of Places 205, which is 2.5M images categorized into 205 classes. Then with Spoke JavaScript framework and with Google SpeechRecognition they manage to obtain 120.000 captions. These are published and splitted into 144.000 training set, a 2,400 development set(maybe val set), and 2.400 for test set. The average speech form caption is 9.5 secs, containing an average of 21.9 words.
+
+**2018 - Harwarth - Jointly Discovering Visual Objects and Spoken Words**
+
+Now in this paper, PlacesAudio had been extended to 402.835 image/caption pairs. Here they also use ADE20k image/speech caption whose underlying scene category is indeed in the Places 205 label set.

@@ -44,3 +44,19 @@ Then finally I could test the model with the Flickr-SoundNet dataset.
 
 Tomorrow:
 Understand the results
+
+### 12/11/2025:
+
+I read again the SSL-TIE paper. What I get from reading it this time,  is that I tested correctly the Flickr10k model and
+I assume that we don't have the exact same results because of the change from `mp3` to `wav`. However, the paper states that audio are cutted
+till 20 segs, which it is noticeable with the wav audios but no with mp3. The reading also inspired me to write the Related Work.
+
+It is important to note that by reading again the paper of Xavier, we could apply the same idea for extending the datasets and Then
+test our new version of SSL-TIE against their metrics of negative audio. Moreover, from checking its github I noticed that models are easily
+deployed. Giving me the idea that when it means that the backbone is ResNet-18 you simply puts its weights and there you have it, I still
+have to check if for example at the SSL-TIE the Siamese architechure is build in this repository.
+
+Conversely, what makes a model different from the other is its training. All of them adopt different ways to apply data augmentation principles
+and its losses functions, (The way that the model learns). Hence, to test is basically forward, get its output and analyse it against a benchmark.
+
+

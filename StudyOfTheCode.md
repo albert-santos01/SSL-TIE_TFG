@@ -262,6 +262,9 @@ TEST dataset size: 249
 Test:    Epoch: [33]    Loss: 0.0375 Acc@1: 0.0000 Acc@5: 0.0000 MeancIoU: 0.7791 AUC: 0.5927
 ```
 This is the model Flickr10K tested agaist the Flickr-SoundNet dataset. The values of the paper are:
+
             mean cIoU  AUC
+
 Ours Flickr-10k 0.755 0.588
+
 Obtained today: 0.779 0.5927

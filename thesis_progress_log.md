@@ -80,3 +80,44 @@ Regarding the dataset, this one is obtained from a subset of Places 205, which i
 **2018 - Harwarth - Jointly Discovering Visual Objects and Spoken Words**
 
 Now in this paper, PlacesAudio had been extended to 402.835 image/caption pairs. Here they also use ADE20k image/speech caption whose underlying scene category is indeed in the Places 205 label set.
+
+
+### 14/01/2025
+Cosas que quiero hacer hoy:
+- Hacer el log de reunion de hoy
+- Enviar Carta BSC y correo a Inetum
+- Hacer Roadmap de lo siguiente del TFG
+- Mirar Vuelos y dedicar tiempo a pensar que puedo hacer
+- Hacer algo mas del TFG
+
+Today, me and Gloria had a meeting to talk about the progress of the project. We declared that the main aim  of the thesis  is to try and adapt SSL-TIE to get the audio temporal analysis as DenseAV or DAVENet.
+Basically, the same thing of DAVENet but with SSL-TIE, ideal to get Natural Sounds as well, with ADE20k
+
+Next, in order to improve it we can use DINO or CLIP-DINOiser because it does a finer localisation and segmantic localization, And do the same thing as DenseAV or CLIP-DINOiser. Add this features to our SSL-TIE.
+
+Finally, do a huge aplication that by speaking or making sounds it will localize the considered subject. This is the final part of the thesis which indeed it will take time as well. This can be done with flask xd. I need to work A LOT bruv.
+
+Therefore, here the roadmap:
+#### ROADMAP, option 1:
+1. Get access to the cluster and understand how it works
+2. Create whole directory in the cluster
+3. Create sbatch file in order to run (You have the support document that Xavier gave you)
+4. I would run first a test
+5. Upload somehow the datasets (PlacesAudio) and ADE20k
+7. Analize how to get the temporal audio
+6. Do a single epoch
+7. Estimate time to do the whole dataset
+If it's not to much
+8. Train with PlacesAudio
+9. Meanwhile create a script to see the work and analyse it
+10. Then train with both (ADE20K and PlacesAudio)
+11. See results with both
+Else:
+8. train with both
+9. see results with both with the script done with both
+
+#### ROADMAP option 2:
+Basically prepare a subset and run them in my home computer
+
+More things to mention about the meeting (because i remember on the while):
+- My results of testing SSL-TIE are probably different because I tested it with a Windows and I've changed things for the code to run in windows, and Xavier suggests that the results are different probably because of this. It is recommendable to change the whole environment to ubuntu xdddd.

@@ -121,3 +121,13 @@ Basically prepare a subset and run them in my home computer
 
 More things to mention about the meeting (because i remember on the while):
 - My results of testing SSL-TIE are probably different because I tested it with a Windows and I've changed things for the code to run in windows, and Xavier suggests that the results are different probably because of this. It is recommendable to change the whole environment to ubuntu xdddd.
+
+### 03/02/2025
+I managed to get till the 5th milestone. I encountered many problems that I briefly mention in the following:
+- Had to reset cluster password (resolved with support)
+- No https connection (resolved with support)
+- After downloading PlacesAudio, I found out that I had to download them from the original dataset (managed with openxlab)
+- Only need 400k images, need to check if I got all of them (being done at the job 8656)
+- In the cluster I only have modules cuda 11.8 and 12.1 which they will lead to many problems due to cuda 11.0 code based
+
+Now I proceed to study how to achieve the temporal variable for SSL-TIE

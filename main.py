@@ -8,10 +8,10 @@ warnings.filterwarnings("ignore")
 
 # print("Silencing warnings from modules...")
 # Save original stderr
-original_stderr = sys.stderr
+# original_stderr = sys.stderr
 
 # Redirect stderr to a "black hole" (null device)
-sys.stderr = open(os.devnull, 'w')
+# sys.stderr = open(os.devnull, 'w')
 
 # Import modules (silently)
 from kornia.geometry.transform.affwarp import scale
@@ -57,8 +57,8 @@ from utils.utils import save_checkpoint, AverageMeter, write_log, calc_topk_accu
 
 
 # Restore original stderr
-sys.stderr.close()
-sys.stderr = original_stderr
+# sys.stderr.close()
+# sys.stderr = original_stderr
 
 # print("Back to normal logging!")
 
@@ -447,13 +447,16 @@ def main(args):
     # To Ensure Cuda context
     print("Is cuda available",torch.cuda.is_available()) 
 
-    if args.gpus is None:
-        if "CUDA_VISIBLE_DEVICES" not in os.environ:
-            raise EnvironmentError("CUDA_VISIBLE_DEVICES environment variable is not set.")
-        args.gpus = str(os.environ["CUDA_VISIBLE_DEVICES"])
-    else:
-        os.environ["CUDA_VISIBLE_DEVICES"]=str(args.gpus)
-        args.gpus = list(range(torch.cuda.device_count()))
+    # if args.gpus is None:
+    #     if "CUDA_VISIBLE_DEVICES" not in os.environ:
+    #         raise EnvironmentError("CUDA_VISIBLE_DEVICES environment variable is not set.")
+    #     args.gpus = str(os.environ["CUDA_VISIBLE_DEVICES"])
+    # else:
+    #     os.environ["CUDA_VISIBLE_DEVICES"]=str(args.gpus)
+        # args.gpus = list(range(torch.cuda.device_count()))
+    args.gpus = list(range(torch.cuda.device_count()))
+    print('Using GPU:', args.gpus)
+    
     if args.debug:
         args.n_threads=0
 

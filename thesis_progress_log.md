@@ -131,3 +131,19 @@ I managed to get till the 5th milestone. I encountered many problems that I brie
 - In the cluster I only have modules cuda 11.8 and 12.1 which they will lead to many problems due to cuda 11.0 code based
 
 Now I proceed to study how to achieve the temporal variable for SSL-TIE
+
+### 06/02/2025
+Since the code is based on pytorch 1.12.1 Cuda 11.0, Xavi suggested that instead to migrating all the code try first doing a test:
+- I tried to create de conda env with for pytorch 1.12.1 but it was impossible since CUDA 11.8 cannot handle it. the function `torch.cuda.is_available()`  raises an error.
+- I created a new environment called `ssl-118` that has pytorch 2.0.0 and CUDA 11.8 and it works. Now `torch.cuda.is_available()` returns `False`. It is expected to return `True`  once I submit the job to the cluster.
+
+For the testing
+- I managed to download the model of ssl-tie and the dataset of Flicrk10k and organised it as it required.
+
+Important to mention:
+- Now I can use all the Linux lines of code that were hidden since before it was impossible to run them in Windows. Therefore, a change of code is expected.
+
+The test went all right with no issues however we still have the same difference with respect to the paper
+
+
+

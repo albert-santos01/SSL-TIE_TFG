@@ -145,5 +145,16 @@ Important to mention:
 
 The test went all right with no issues however we still have the same difference with respect to the paper
 
-
+### 07/02/2025
+Things I could do today:
+1. Read to understand how to get the temporal volume
+    1. Read Mit paper
+    2. Read SSL-TIE
+    3. Read DenseAV
+    4. See code MIT
+    5. Understand and Study the code of the model SSL-TIE (AVE-NET)
+    6. Understand the training code
+    7. Implement the code
+    8. Document everything
+    
 

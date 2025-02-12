@@ -157,4 +157,61 @@ Things I could do today:
     7. Implement the code
     8. Document everything
     
+1.1. My assumption is that this 3rd order tensor M is the final computation and contains all the similarity between the spatial location and temporal of the audio 14 x 14 x 128. They expect these dimensions to be at least recoverable to detect a decent object size and a to at least catching a words within each activation.
 
+It is interesting to see how the conv5 is really important, firstly noted by Zhou et al (Learning deep features for discriminative
+localization.) What i think about conv5 is 5x5 filter. They note that they don't couple conv5 to fc1 because that it's a flattening operation meaning that in this way they are able to recover the associations between neurons above and the localisation stimulus that is responsible for the output.
+
+Many interesting techniques to address the problem are described in this paper
+
+- Vision enconder: (14 x 14 x 512/1024)  they apply a 3x3 linear convolution to get the 1024 chanel
+- Audio encoder:    (128 x 1024) 128 for the temporal
+
+
+### 11/02/2025
+1.2 Reading SSL-TIE
+Remember Siamese Network:
+    - Two identical branches with audio and image encoders
+    - They use Chen [6] treating the foreground as a negative pair plus unpaired signals
+    - Here the shape of the video encoder (14 x 14 x 512) and the shape of audio features(1 x 512)
+
+Purpose of using SSL-TIE:
+They key thing of this is that their approach of invariance and equivariance (data augmentation) has been proved that has a audiovisual understanding performing best at Sound Source Localisation
+Therefore, in this thesis by means of this approach we try to align the model to Language Spoken modality as done by Hamilton et al. (2024) but with this architecture.
+However, since SSL-TIE detects the SS by processing the 10 secs of audio entirely, its audio encoder architecture has to be changed in order to get the volume of similarities.
+propose to change the audio feature:
+At the end they use
+    
+### 12/02/2025
+AudioConvNet DAVENet
+```python
+ def __init__(self, embedding_dim=1024):
+        super(Davenet, self).__init__()
+        self.embedding_dim = embedding_dim
+        self.batchnorm1 = nn.BatchNorm2d(1) # One channel input BW
+        self.conv1 = nn.Conv2d(1, 128, kernel_size=(40,1), stride=(1,1), padding=(0,0)) # 
+        self.conv2 = nn.Conv2d(128, 256, kernel_size=(1,11), stride=(1,1), padding=(0,5))
+        self.conv3 = nn.Conv2d(256, 512, kernel_size=(1,17), stride=(1,1), padding=(0,8))
+        self.conv4 = nn.Conv2d(512, 512, kernel_size=(1,17), stride=(1,1), padding=(0,8))
+        self.conv5 = nn.Conv2d(512, embedding_dim, kernel_size=(1,17), stride=(1,1), padding=(0,8))
+        self.pool = nn.MaxPool2d(kernel_size=(1,3), stride=(1,2),padding=(0,1))
+
+    def forward(self, x):
+        if x.dim() == 3: # It has to be bw
+            x = x.unsqueeze(1) 
+
+        x = self.batchnorm1(x)      # 1024 x 40 x 1
+        x = F.relu(self.conv1(x))   # 1024 x 1 x 128
+        x = F.relu(self.conv2(x))   # 1024 x 1 x 256 (kernel 1x11 + padding 0x5)
+        x = self.pool(x)            # 512 x 1 x 256
+        x = F.relu(self.conv3(x))   # 512 x 1 x 512 (kernel 1x17 + padding 0x8)
+        x = self.pool(x)            # 256 x 1 x 512
+        x = F.relu(self.conv4(x))   # 256 x 1 x 512 (kernel 1x17 + padding 0x8)
+        x = self.pool(x)            # 128 x 1 x 512
+        x = F.relu(self.conv5(x))   # 128 x 1 x 1024 (kernel 1x17 + padding 0x8)
+        x = self.pool(x)            # 64 x 1 x 1024 It should be 128 This maxpooling shouldn't exist
+        x = x.squeeze(2)
+        return x
+
+```
+ the convolution in your code is done with a non-square filter. The kernel size (40, 1) indicates that the filter has a height of 40 and a width of 1. This means the convolution will apply a filter that is tall and narrow, which can be useful for certain types of data, such as audio spectrograms where you might want to capture patterns across frequency bands (height) while preserving the time dimension (width).

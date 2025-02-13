@@ -455,6 +455,9 @@ def main(args):
     #     os.environ["CUDA_VISIBLE_DEVICES"]=str(args.gpus)
         # args.gpus = list(range(torch.cuda.device_count()))
         
+    
+    
+
     if args.debug_code:
         print('Debugging code')
         raise ValueError('Debugging code')
@@ -472,7 +475,12 @@ def main(args):
 
     print('Number of GPUs:', len(args.gpus))
     
-    device = torch.device('cuda:1') if len(args.gpus) > 1 else torch.device('cuda:0')
+    if torch.cuda.is_available():
+        # device = torch.device('cuda:1') if len(args.gpus) > 1 else torch.device('cuda:0')
+        device = torch.device('cuda') # We are using only one GPU
+    else:
+        device = torch.device('cpu')
+        print('Using CPU')
 
     best_acc = 0
     best_miou = 0
@@ -481,11 +489,14 @@ def main(args):
     np.random.seed(args.seed)
     random.seed(args.seed)
     args.img_path, args.model_path, args.exp_path = set_path(args)
-
+    
     model = AVENet(args)
-    model = model.cuda()
-    model = torch.nn.DataParallel(model, device_ids=args.gpus, output_device=device)  
-    model_without_dp = model.module
+    model.to(device)
+    if torch.cuda.is_available():
+        model = torch.nn.DataParallel(model, device_ids=args.gpus, output_device=device)  
+        model_without_dp = model.module
+    else:
+        model_without_dp = model.module
 
     criterion = nn.CrossEntropyLoss()
     optim = Adam(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
@@ -567,8 +578,8 @@ def main(args):
     else:
         print('Train the model from scratch on {0}!'.format(args.dataset_mode))
 
-
-    torch.backends.cudnn.benchmark = True
+    if torch.cuda.is_available():
+        torch.backends.cudnn.benchmark = True
 
     writer_val = SummaryWriter(logdir=os.path.join(args.img_path, 'val'))
     writer_train = SummaryWriter(logdir=os.path.join(args.img_path, 'train'))

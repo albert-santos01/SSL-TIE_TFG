@@ -454,8 +454,14 @@ def main(args):
     # else:
     #     os.environ["CUDA_VISIBLE_DEVICES"]=str(args.gpus)
         # args.gpus = list(range(torch.cuda.device_count()))
+        
+    if args.debug_code:
+        print('Debugging code')
+        raise ValueError('Debugging code')
+    
     args.gpus = list(range(torch.cuda.device_count()))
     print('Using GPU:', args.gpus)
+    
     
     if args.debug:
         args.n_threads=0

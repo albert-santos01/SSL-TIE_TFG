@@ -13,6 +13,9 @@ def get_arguments():
     parser.add_argument('--soundnet_test_path', default='/',\
             type=str, help='soundset validation set directory' )
    
+    # Added by Albert
+    parser.add_argument('--debug_code', action='store_true', help='Debug code')
+    #
     
     parser.add_argument('--trainset', default='VGGSS', type=str, help="Training dataset")
     parser.add_argument('--training_set_scale', default='fullset', type=str, help="fullset | subset_144k , for VGGSound")

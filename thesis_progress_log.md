@@ -215,3 +215,21 @@ AudioConvNet DAVENet
 
 ```
  the convolution in your code is done with a non-square filter. The kernel size (40, 1) indicates that the filter has a height of 40 and a width of 1. This means the convolution will apply a filter that is tall and narrow, which can be useful for certain types of data, such as audio spectrograms where you might want to capture patterns across frequency bands (height) while preserving the time dimension (width).
+
+### 13/02/2025
+So basically this day I managed to:
+- reorder my data and put everything at `$DATA`
+- Install conda at my laptop
+- Create environment to use pytorch in my laptop for later debugging
+- Modify code in order to use either cuda environment or cpu
+- Check the modification by launching a test with Flickr10k (It passed)
+- Start the preparation for debugging the code (``debug_training.sh``)
+- We manage to install all the packages correctedly and now we know that we can debug till the breakpoint
+
+Things for tomorrow:
+- Make the code possible to use only just a sample in order to train the model
+- Check the pipeline
+- Decide on the average pooling
+- Check what else in the meeting notes
+
+

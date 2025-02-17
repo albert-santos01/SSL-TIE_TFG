@@ -1,4 +1,5 @@
 # NOTES about OPTS
+## exp_name
 The function of set_path(args) at main.py will create directory of ckpts of the associated  experiment `exp_name`.
 ```python
 def set_path(args):
@@ -24,4 +25,7 @@ def set_path(args):
 ```
 So `exp_name` will be the name of the model and everything. 
 (Take this into account when training)
+
+## img_aug & aud_aug
+These two variables maybe can be setted in order to take the desired data augmentation
 

@@ -245,3 +245,27 @@ Things done:
 - Upload some sample images and respective audios for dataset debug
 - Thanks to debugging, some parameters the model `img_aug` and `aud_aug` are now described in opts file
 
+### 16/02/2025
+So today finally we ended debbugging the whole pipeline meaning that
+1. We added correctly the `dataset_mode` to `Debug` correctly
+2. We wrote down the whole pipeline of the AVENet at the notebook (Todo Daily), the image and the aud
+    the audio is worth studying
+3. We noted down at ``notes_about_opts.md`` glimpses of aud_aug for the future
+4. ``model.py`` required some changes in order to work with CPU
+5. We added at the ``launch.json``
+6. We also added args.testset_path explained at notes_about_opts.md and the txt for the Dataloader in case of using dir_for_debugging
+
+Things important to note:
+1. We wrote down when the model averages the temporal dimension and how it joins both embeddings [torch.einsum, line 284](./models/model.py#L76) 
+2. The pipeline works presumably well. However, at training, once the heatmap is forwarded we catch an Exception when the code tries to calculate `calc_topk_accuracy`
+```python
+top1, top5 = calc_topk_accuracy(out, target, (1,5))
+```
+[train_one_epoch( ), main.py](main.py#144) Which the error says that index went out of range, which I assume that it is due to having only 5 samples in the dataset and that this is probably the adding thing of negative samples.
+
+3. The testing with `Debug` would work well eventually
+
+
+
+
+

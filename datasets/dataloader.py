@@ -48,10 +48,14 @@ class GetAudioVideoDataset(Dataset):
         data = []
         self.args = args
 
-        if args.dataset_mode == 'VGGSound':
-            args.trainset_path = args.trainset_path
-        elif args.dataset_mode == 'Flickr':
-            args.trainset_path = args.Flickr_trainset_path
+        dataset_paths = {
+            'VGGSound': args.trainset_path,
+            'Flickr': args.Flickr_trainset_path,
+            'Debug': args.trainset_path
+        }
+
+        if args.dataset_mode in dataset_paths:
+            args.trainset_path = dataset_paths[args.dataset_mode]
 
         # Debug with a small dataset
         if args.debug:
@@ -140,6 +144,17 @@ class GetAudioVideoDataset(Dataset):
                         self.audio_path = args.soundnet_test_path + '/mp3/'
                         # self.audio_path = args.soundnet_test_path + '/wav/'
                         self.video_path = args.soundnet_test_path + '/frame/'
+
+            elif args.dataset_mode == 'Debug':
+                if mode == 'train' or mode == 'test':
+                    with open('metadata/debug_code.txt') as f:
+                        txt_reader = f.readlines()
+                        for item in txt_reader:
+                            data.append(item.split('.')[0])
+                        self.audio_path = args.trainset_path + '/mp3/'
+                        self.video_path = args.trainset_path + '/frame/'
+                
+
                 
 
 
@@ -245,7 +260,12 @@ class GetAudioVideoDataset(Dataset):
                 frame_ori = np.array(self._load_frame(os.path.join(self.video_path, file + '.jpg')))
                 samples, samplerate = torchaudio.load(os.path.join(self.audio_path, file + '.mp3'))
                 # samples, samplerate = torchaudio.load(os.path.join(self.audio_path, file + '.wav'))
-
+        # For debugging
+        elif self.args.dataset_mode == 'Debug':
+            if self.mode in ['train', 'test', 'val']:
+                frame = self.img_transform(self._load_frame(os.path.join(self.video_path, file + '.jpg')))
+                frame_ori = np.array(self._load_frame(os.path.join(self.video_path, file + '.jpg')))
+                samples, samplerate = torchaudio.load(os.path.join(self.audio_path, file + '.mp3'))
 
         if samples.shape[1] < samplerate * 10:
             n = int(samplerate * 10 / samples.shape[1]) + 1

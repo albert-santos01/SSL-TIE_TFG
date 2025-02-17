@@ -53,6 +53,9 @@ class AVENet(nn.Module):
             elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
                 nn.init.normal_(m.weight, mean=1, std=0.02)
                 nn.init.constant_(m.bias, 0)
+        
+        # Define the device
+        self.device = next(self.parameters()).device
 
     def forward(self, image, audio, args, mode='val'):
 
@@ -60,7 +63,7 @@ class AVENet(nn.Module):
         self.epsilon2 = args.epsilon2
         # Image
         B = image.shape[0]
-        self.mask = ( 1 -100 * torch.eye(B,B)).cuda()
+        self.mask = ( 1 -100 * torch.eye(B,B)).to(self.device)
         # import ipdb; ipdb.set_trace()
         img = self.imgnet(image)
         img = nn.functional.normalize(img, dim=1)

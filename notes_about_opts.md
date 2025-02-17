@@ -28,4 +28,17 @@ So `exp_name` will be the name of the model and everything.
 
 ## img_aug & aud_aug
 These two variables maybe can be setted in order to take the desired data augmentation
+A random piece of code that I found on the run:
+```python
+ if (self.args.aud_aug=='SpecAug') and (self.mode=='train') and (random.random() < 0.8):
+            maskings = nn.Sequential(
+                audio_T.TimeMasking(time_mask_param=180),
+                audio_T.FrequencyMasking(freq_mask_param=35)
+                )
+            spectrogram = maskings(spectrogram)
 
+```
+[`dataloader.py`, line 284](./datasets/dataloader.py#L284)
+
+## trainset_path & testset_path
+Interestingly they have diferent definitions of testset wether it's vggss or flickr. This is important for them since they make a mix of both datasets. However, for the current purpose of only to use Places Audio it leads to have a lot of redundant code, explicitly a lot of different clauses regarding the `dataset_mode`

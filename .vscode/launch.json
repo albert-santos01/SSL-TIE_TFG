@@ -3,7 +3,7 @@
     "configurations": [
         
         {
-            "name": "Debug main.py with CLI args",
+            "name": "Debug main.py training with CLI args",
             "type": "debugpy",
             "request": "launch",
             "program": "main.py",
@@ -27,6 +27,26 @@
             "env": {
                 "DATA": "/absolute/path/to/DATA" // Set this to your actual DATA directory
             }
+        },
+
+        {
+            "name": "Debug main.py testing with CLI args",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--batch_size", "1",
+                "--gpus", "0",
+                "--dataset_mode", "Debug",
+                "--trainset_path", "dir_for_debugging",
+                "--test_path", "dir_for_debugging",
+                "--test", "ckpts/flickr10k.pth.tar"
+            ],
+            "env": {
+                "DATA": "/absolute/path/to/DATA" // Set this to your actual DATA directory
+            }
         }
+        
     ]
 }

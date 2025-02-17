@@ -455,15 +455,14 @@ def main(args):
     #     os.environ["CUDA_VISIBLE_DEVICES"]=str(args.gpus)
         # args.gpus = list(range(torch.cuda.device_count()))
         
-    
+    args.gpus = list(range(torch.cuda.device_count()))
+    print('Using GPU:', args.gpus)
     
 
     if args.debug_code:
         print('Debugging code')
         raise ValueError('Debugging code')
     
-    args.gpus = list(range(torch.cuda.device_count()))
-    print('Using GPU:', args.gpus)
     
     
     if args.debug:
@@ -493,10 +492,10 @@ def main(args):
     model = AVENet(args)
     model.to(device)
     if torch.cuda.is_available():
-        model = torch.nn.DataParallel(model, device_ids=args.gpus, output_device=device)  
+        model = torch.nn.DataParallel(model, device_ids=args.gpus, output_device=device)
         model_without_dp = model.module
     else:
-        model_without_dp = model.module
+        model_without_dp = model  # Directly assign the model if not using DataParallel
 
     criterion = nn.CrossEntropyLoss()
     optim = Adam(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
@@ -533,6 +532,8 @@ def main(args):
             test_dataset = GetAudioVideoDataset(args, mode='test' if args.test_set == 'VGGSS' else 'val')
         elif args.dataset_mode == 'Flickr':
             test_dataset = GetAudioVideoDataset(args, mode='test')
+        elif args.dataset_mode == 'Debug':
+            test_dataset = GetAudioVideoDataset(args, mode='test')
 
         test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False,\
             num_workers=args.n_threads, pin_memory=True)
@@ -544,6 +545,8 @@ def main(args):
     if args.dataset_mode == 'VGGSound':
         val_dataset = GetAudioVideoDataset(args, mode='test' if args.val_set == 'VGGSS' else 'val')
     elif args.dataset_mode == 'Flickr':
+        val_dataset = GetAudioVideoDataset(args, mode='test')
+    elif args.dataset_mode == 'Debug':
         val_dataset = GetAudioVideoDataset(args, mode='test')
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, \

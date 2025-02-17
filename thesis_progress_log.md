@@ -232,4 +232,16 @@ Things for tomorrow:
 - Decide on the average pooling
 - Check what else in the meeting notes
 
+### 15/02/2025
+Today we are learning on how to debug
+
+Things to note:
+- we may understand later what are the purpose of args.eval_start and args.eval_freq and model_without_dp.state_dict()
+
+Things done:
+- Create Launch.json in order to debug the code with the desired parameters
+- We understood how the pipeline would go for training by debugging the code
+- Now introducing a new dataset_mode called debug
+- Upload some sample images and respective audios for dataset debug
+- Thanks to debugging, some parameters the model `img_aug` and `aud_aug` are now described in opts file
 

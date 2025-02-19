@@ -272,6 +272,8 @@ After reading what we did the other day, we have few things that we could start 
 
 2. SSL-TIE doesn't fully stack the frequential and does reduces the Temporal two times more than DAVENet
 
+[CHECK word ``AUDIO ENCODER INFORMATION``]
+
 Suggestion to do:
 
 1. Do another main that doesn't use the masks 

@@ -245,7 +245,7 @@ Things done:
 - Upload some sample images and respective audios for dataset debug
 - Thanks to debugging, some parameters the model `img_aug` and `aud_aug` are now described in opts file
 
-### 16/02/2025
+### 17/02/2025
 So today finally we ended debbugging the whole pipeline meaning that
 1. We added correctly the `dataset_mode` to `Debug` correctly
 2. We wrote down the whole pipeline of the AVENet at the notebook (Todo Daily), the image and the aud
@@ -264,6 +264,30 @@ top1, top5 = calc_topk_accuracy(out, target, (1,5))
 [train_one_epoch( ), main.py](main.py#144) Which the error says that index went out of range, which I assume that it is due to having only 5 samples in the dataset and that this is probably the adding thing of negative samples.
 
 3. The testing with `Debug` would work well eventually
+
+### 19/02/2025
+After reading what we did the other day, we have few things that we could start from. I had an interview that really got me unmindful So what i know for sure is the following:
+
+1. We did an analysis on how the input audio is transformed into spectrogram. In which the conclusion is that SSL-TIE respects the temporal resolution while having high frequency resolution compared to DenseAV and DAVENet.
+
+2. SSL-TIE doesn't fully stack the frequential and does reduces the Temporal two times more than DAVENet
+
+Suggestion to do:
+
+1. Do another main that doesn't use the masks 
+
+2. Suggest that maybe  avoiding  another maxpool could lead to better temporal activations
+
+TO DO:
+
+1. Check Harwath how does this the joining 
+2. Start by creating a more functional main. Maybe we have to see if we need to restructure the code to make it more reusable by means of encapsulation 
+3. Prepare the whole dataset
+4. Study how to implement Wandb here. Maybe ask Xavi
+5. [If possible] Launch one epoch to inform the whole dataset process.
+
+
+
 
 
 

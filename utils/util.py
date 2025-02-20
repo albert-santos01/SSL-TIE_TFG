@@ -250,3 +250,63 @@ def tensor2img(img, imtype=np.uint8, resolution=(224,224), unnormalize=True):
 
     return img_numpy
 
+
+def computeMatchmap(I, A):
+    """
+    Computes the 3rd order tensor of matchmap between image and audio.
+    Its the dot product.
+    """
+    assert(I.dim() == 3)
+    assert(A.dim() == 2)
+    # D = I.size(0)
+    # H = I.size(1)
+    # W = I.size(2)
+    # T = A.size(1)                                                                                                                     
+    # Ir = I.view(D, -1).t()
+    # matchmap = torch.mm(Ir, A)
+    # matchmap = matchmap.view(H, W, T)  
+    matchmap = torch.einsum('hwc,tc->hwt', I, A)
+    return matchmap
+
+def matchmapSim(M, simtype):
+    assert(M.dim() == 3)
+    if simtype == 'SISA':
+        return M.mean()
+    elif simtype == 'MISA':
+        M_maxH, _ = M.max(0)
+        M_maxHW, _ = M_maxH.max(0)
+        return M_maxHW.mean()
+    elif simtype == 'SIMA':
+        M_maxT, _ = M.max(2)
+        return M_maxT.mean()
+    else:
+        raise ValueError('Unknown similarity type: %s' % simtype)
+
+def sampled_margin_rank_loss(image_outputs, audio_outputs, margin=1., simtype='MISA'):
+    """
+    From DAVENet - Harwath et al. 2018
+    Computes the triplet margin ranking loss for each anchor image/caption pair
+    The impostor image/caption is randomly sampled from the minibatch
+    """
+    assert(image_outputs.dim() == 4)
+    assert(audio_outputs.dim() == 3)
+    B = image_outputs.size(0)
+    loss = torch.zeros(1, device=image_outputs.device, requires_grad=True)
+    for i in range(B):
+        I_imp_ind = i
+        A_imp_ind = i
+        while I_imp_ind == i: #Try to sample a different image
+            I_imp_ind = np.random.randint(0, B)
+        while A_imp_ind == i:
+            A_imp_ind = np.random.randint(0, B)
+        anchorsim = matchmapSim(computeMatchmap(image_outputs[i], audio_outputs[i]), simtype)
+        Iimpsim = matchmapSim(computeMatchmap(image_outputs[I_imp_ind], audio_outputs[i]), simtype)
+        Aimpsim = matchmapSim(computeMatchmap(image_outputs[i], audio_outputs[A_imp_ind]), simtype)
+        A2I_simdif = margin + Iimpsim - anchorsim
+        if (A2I_simdif.data > 0).all():
+            loss = loss + A2I_simdif
+        I2A_simdif = margin + Aimpsim - anchorsim
+        if (I2A_simdif.data > 0).all():
+            loss = loss + I2A_simdif
+    loss = loss / B
+    return loss

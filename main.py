@@ -48,7 +48,7 @@ from utils.eval_ import Evaluator
 from sklearn.metrics import auc
 from tqdm import tqdm
 
-from utils.util import prepare_device, vis_heatmap_bbox, tensor2img
+from utils.util import prepare_device, vis_heatmap_bbox, tensor2img, sampled_margin_rank_loss
 from utils.tf_equivariance_loss import TfEquivarianceLoss
 
 import utils.tensorboard_utils as TB
@@ -106,7 +106,7 @@ def set_path(args):
     return img_path, model_path, exp_path
 
 
-def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
+def train_one_epoch_org(train_loader, model, criterion, optim, device, epoch, args):
     batch_time = AverageMeter('Time',':.2f')
     data_time = AverageMeter('Data',':.2f')
     losses = AverageMeter('Loss',':.4f')
@@ -159,7 +159,7 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         top1_ts, top5_ts = calc_topk_accuracy(out_ts, target, (1,5))
 
         ts_heatmap = tf_equiv_loss.transform(heatmap)
-        loss_ts = tf_equiv_loss(heatmap_ts, ts_heatmap)
+        loss_ts = tf_equiv_loss(heatmap_ts, ts_heatmap) # This is the transformation equivariance loss "Siamese network"
         loss = 0.5*(loss_cl + loss_cl_ts) + lambda_trans_equiv * loss_ts 
 
 
@@ -213,8 +213,127 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
 
     return losses.avg, top1_meter.avg
 
+def train_one_epoch_3_order_tensor(train_loader, model, criterion, optim, device, epoch, args):
+    batch_time = AverageMeter('Time',':.2f')
+    data_time = AverageMeter('Data',':.2f')
+    losses = AverageMeter('Loss',':.4f')
+    losses_cl = AverageMeter('Loss',':.4f')
+    losses_cl_ts = AverageMeter('Loss',':.4f')
+    losses_ts = AverageMeter('Loss',':.4f')
+    top1_meter = AverageMeter('acc@1', ':.4f')
+    top5_meter = AverageMeter('acc@5', ':.4f')
+    top1_meter_ts = AverageMeter('acc@1', ':.4f')
+    top5_meter_ts = AverageMeter('acc@5', ':.4f')
 
+    progress = ProgressMeter(                             
+        len(train_loader),
+        [batch_time, data_time, losses, top1_meter, top5_meter],
+        prefix='Epoch:[{}]'.format(epoch))
+    model.train()
+    end = time.time()
+    tic = time.time()
 
+    lambda_trans_equiv = args.trans_equi_weight
+    
+
+    for idx, (image, spec, audio, name, img_numpy) in enumerate(train_loader):
+        data_time.update(time.time() - end)
+        spec = Variable(spec).to(device, non_blocking=True)
+        image = Variable(image).to(device, non_blocking=True)
+        B = image.size(0)
+        # First branch of the siamese network
+        imgs_out, auds_out = model(image.float(), spec.float(), args, mode='train')
+
+             
+        loss_cl =  sampled_margin_rank_loss(imgs_out, auds_out, margin=1., simtype=args.simtype)                
+        # top1, top5 = calc_topk_accuracy(out, target, (1,5))
+
+        if args.siamese:
+
+            match_map_b = torch.einsum('bhwd,btd -> bhwt',imgs_out, auds_out)
+
+            tf_equiv_loss = TfEquivarianceLoss(
+                            transform_type='rotation',
+                            consistency_type=args.equi_loss_type,
+                            batch_size=B,
+                            max_angle=args.max_rotation_angle,
+                            input_hw=(224, 224),
+                            )
+            tf_equiv_loss.set_tf_matrices()
+
+            transformed_image = tf_equiv_loss.transform(image)
+
+            # Second branch of the siamese network
+            imgs_out_ts, auds_out_ts = model(transformed_image.float(), spec.float(), args, mode='train')
+            loss_cl_ts = sampled_margin_rank_loss(imgs_out_ts, auds_out_ts, margin=1., simtype=args.simtype)
+            # top1_ts, top5_ts = calc_topk_accuracy(out_ts, target, (1,5))
+
+            match_map_b_ts = torch.einsum('bhwd,btd -> bhwt',imgs_out_ts, auds_out_ts)
+
+            ts_match_map = tf_equiv_loss.transform(match_map_b)
+            loss_ts = tf_equiv_loss(match_map_b_ts, ts_match_map) # This is the transformation equivariance loss "Siamese network"
+            loss = 0.5*(loss_cl + loss_cl_ts) + lambda_trans_equiv * loss_ts 
+        else:
+            loss = loss_cl
+
+        losses.update(loss.item(), B)
+        losses_cl.update(loss_cl.item(), B)
+        losses_cl_ts.update(loss_cl_ts.item(), B) if args.siamese else None
+        losses_ts.update(loss_ts.item(), B) if args.siamese else None
+
+        # top1_meter.update(top1.item(), B)
+        # top5_meter.update(top5.item(), B)
+
+        # top1_meter_ts.update(top1_ts.item(), B)
+        # top5_meter_ts.update(top5_ts.item(), B)
+        
+        optim.zero_grad()
+        loss.backward()
+        optim.step()
+
+        batch_time.update(time.time() - end)
+        end = time.time()
+
+        if idx % args.print_freq == 0:
+            progress.display(idx)
+            args.train_plotter.add_data('local/loss_cl', loss_cl.item(), args.iteration)
+            args.train_plotter.add_data('local/loss_cl_ts', loss_cl_ts.item(), args.iteration) if args.siamese else None
+            args.train_plotter.add_data('local/loss_ts', loss_ts.item(), args.iteration) if args.siamese else None
+            args.train_plotter.add_data('local/loss', losses.local_avg, args.iteration)
+            # args.train_plotter.add_data('local/top1', top1_meter.local_avg, args.iteration)
+            # args.train_plotter.add_data('local/top5', top5_meter.local_avg, args.iteration)
+            # args.train_plotter.add_data('local/top1_cl', top1_meter_ts.local_avg, args.iteration)
+            # args.train_plotter.add_data('local/top5_cl', top5_meter_ts.local_avg, args.iteration)
+
+        args.iteration += 1
+
+    print('Epoch: [{0}][{1}/{2}]\t'
+        'T-epoch:{t:.2f}\t'.format(epoch, idx, len(train_loader), t=time.time()-tic))
+
+    args.train_plotter.add_data('global/loss', losses.avg, epoch)
+    args.train_plotter.add_data('global/loss_cl', losses_cl.avg, epoch)
+    args.train_plotter.add_data('global/loss_cl_ts', losses_cl_ts.avg, epoch) if args.siamese else None
+    args.train_plotter.add_data('global/loss_ts', losses_ts.avg, epoch) if args.siamese else None
+    # args.train_plotter.add_data('global/top1', top1_meter.avg, epoch) 
+    # args.train_plotter.add_data('global/top5', top5_meter.avg, epoch)
+    # args.train_plotter.add_data('global/top1_ts', top1_meter_ts.avg, epoch)
+    # args.train_plotter.add_data('global/top5_ts', top5_meter_ts.avg, epoch)
+
+    
+    
+    args.train_logger.log('train Epoch: [{0}][{1}/{2}]\t'
+                    'T-epoch:{t:.2f}\t'.format(epoch, idx, len(train_loader), t=time.time()-tic))
+
+    return losses.avg, top1_meter.avg
+
+    
+
+def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
+    if args.order_3_tensor:
+        return train_one_epoch_3_order_tensor(train_loader, model, criterion, optim, device, epoch, args)
+    else:
+        return train_one_epoch_org(train_loader, model, criterion, optim, device, epoch, args)
+    
 def validate(val_loader, model, criterion, device, epoch, args):
     batch_time = AverageMeter()
     losses = AverageMeter()

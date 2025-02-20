@@ -22,7 +22,12 @@
                 "--aud_aug", "SpecAug",
                 "--trainset_path", "dir_for_debugging",
                 "--test_path", "dir_for_debugging",
-                "--epochs", "100"
+                "--epochs", "100",
+                // The following args are for the new architecture
+                "--order_3_tensor",
+                // "--siamese",
+                "--simtype", "MISA"
+
             ],
             "env": {
                 "DATA": "/absolute/path/to/DATA" // Set this to your actual DATA directory

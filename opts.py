@@ -17,6 +17,12 @@ def get_arguments():
    
     # Added by Albert
     parser.add_argument('--debug_code', action='store_true', help='Debug code')
+    parser.set_defaults(debug_code=False)
+    parser.add_argument('--order_3_tensor', action='store_true', help='third order tensor')
+    parser.set_defaults(order_3_tensor=False)
+    parser.add_argument('--simtype', default='MISA', type=str, help='MISA | SISA | SIMA')
+    parser.add_argument('--siamese', action='store_true', help='Siamese network')
+    parser.set_defaults(siamese=False)
     #
     
     parser.add_argument('--trainset', default='VGGSS', type=str, help="Training dataset")

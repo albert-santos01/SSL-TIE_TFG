@@ -288,6 +288,49 @@ TO DO:
 4. Study how to implement Wandb here. Maybe ask Xavi
 5. [If possible] Launch one epoch to inform the whole dataset process.
 
+### 20/02/2025
+
+Acording to the To Do of yesterday:
+1. Harwarth computes the triplet margin ranking loss for each anchor image/caption pair and the impostor image/caption is randomly sampled from the minibatch. [Link](../DAVEnet-pytorch/steps/util.py#88)
+
+Then it uses ``torch.mm`` to join both embedding [Link](../DAVEnet-pytorch/steps/util.py#62)
+
+2. We start by adding a parameter for requesting the three order tensor in opts.py
+
+
+Things to note:
+The logits contains the similarity score between the positive regions and negative ones.
+The target in this case should be zero because there should be no correlation.
+That's why the criterion is nn.CrossEntropyLoss().
+Tbh I can't see if they use negative audios for the cl_loss
+
+Maybe we should propose a new framework for the Siamese concept of equivariance.
+
+
+Therefore I proceed to calculate the same loss as DAVENet:
+
+Finished for today but in the bus im adding the PlacesAudio dataset:
+1. The model has been modified to output only the audio and video feature maps (it doesn't compute the mask). The option --order_3_tensor triggers this.
+2. A LinearConv has been added to increase the embd dimensions from 512 to 1024
+3. main.py has been also modified to do epochs with the matchmap approach
+4. This new trainer can avoid the siamese equivariance configuration by not putting the opt --siamese
+5. Now that the model computes the matchmap it will compute its loss by the triple marging ranking loss
+6. We added at util.py the functions and approaches by Harwath et. al 2018
+7. In opts it has been added the following: --simtype (MISA | SISA | SIMA) --order_3_tensor and --siamese
+8. launch.json has also this new config
+9. A debugging has been completed and fulfills the following requirements:
+    1. The output dimensions of the matchmap is 14 x 14 x 58 considering and embedding dimension of 1024
+    2. The loss has been correctly computed
+    3. All the epochs are correctly done
+    4. It catches an exception when it wants to do the validation
+
+Things for next time:
+1. Maybe we have to consider a new concept of equivariance: transformations for 3D Tensors??
+2. Now we have to add the Places Audio dataset in the code 
+3. Maybe we have to propose the validation of Harwath but not that frequently
+4. Check the Spec aug!!!!
+
+
 
 
 

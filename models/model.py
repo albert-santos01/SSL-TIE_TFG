@@ -46,6 +46,10 @@ class AVENet(nn.Module):
         self.norm3 = nn.BatchNorm2d(1)
         self.vpool3 = nn.MaxPool2d(14, stride=14)
 
+        # Linear Convolution
+        self.linearConv = nn.Conv2d(512, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+
+
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(
@@ -57,17 +61,20 @@ class AVENet(nn.Module):
         # Define the device
         self.device = next(self.parameters()).device
 
-    def forward(self, image, audio, args, mode='val'):
+        # For computing the 3rd order Tensor
+        self.order_3_tensor = args.order_3_tensor
 
+    def forward_org(self, image, audio, args, mode='val'):
+        
         self.epsilon =  args.epsilon
         self.epsilon2 = args.epsilon2
         # Image
         B = image.shape[0]
         self.mask = ( 1 -100 * torch.eye(B,B)).to(self.device)
-        # import ipdb; ipdb.set_trace()
+
         img = self.imgnet(image)
         img = nn.functional.normalize(img, dim=1)
-        # import ipdb; ipdb.set_trace()
+
         # Audio
         aud = self.audnet(audio)
         aud = self.avgpool(aud).view(B,-1)
@@ -109,3 +116,28 @@ class AVENet(nn.Module):
         # labels = labels.to(torch.float32)
         # import ipdb; ipdb.set_trace()
         return A, logits, Pos, Neg, A0_ref
+
+    def forward_3rd_order_tensor(self, image, audio, args, mode='val'):
+        # Image
+        B = image.shape[0]
+        img = self.imgnet(image) # B x 512 x 14 x 14
+        img = self.linearConv(img) # B x 1024 x 14 x 14
+        img = nn.functional.normalize(img, dim=1)
+
+        # Audio
+        aud = self.audnet(audio) # B x 512 x 17 x 58
+        aud = self.linearConv(aud) # B x 1024 x 17 x 58
+        aud = torch.mean(aud, dim=2) # B x 1024 x 58
+        aud = nn.functional.normalize(aud, dim=1)
+
+        # Reshape image and audio embeddings
+        img = img.permute(0, 2, 3, 1)  # (B, 14, 14, 1024)
+        aud = aud.permute(0, 2, 1)      # (B, 58, 1024)
+
+        return img, aud
+
+    def forward(self, image, audio, args, mode='val'):
+        if self.order_3_tensor:
+            return self.forward_3rd_order_tensor(image, audio, args, mode)
+        else:
+            return self.forward_org(image, audio, args, mode)

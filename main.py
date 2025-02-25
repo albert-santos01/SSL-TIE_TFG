@@ -40,7 +40,7 @@ from PIL import Image
 
 from models.model import AVENet
 
-from datasets import GetAudioVideoDataset
+from datasets import GetAudioVideoDataset, PlacesAudio
 from opts import get_arguments
 from utils.utils import AverageMeter, reverseTransform, accuracy
 import xml.etree.ElementTree as ET
@@ -50,6 +50,7 @@ from tqdm import tqdm
 
 from utils.util import prepare_device, vis_heatmap_bbox, tensor2img, sampled_margin_rank_loss
 from utils.tf_equivariance_loss import TfEquivarianceLoss
+import multiprocessing
 
 import utils.tensorboard_utils as TB
 from utils.utils import save_checkpoint, AverageMeter, write_log, calc_topk_accuracy, \
@@ -334,7 +335,38 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     else:
         return train_one_epoch_org(train_loader, model, criterion, optim, device, epoch, args)
     
-def validate(val_loader, model, criterion, device, epoch, args):
+def validate_3_order_tensor(val_loader, model, criterion, device, epoch, args):
+    batch_time = AverageMeter()
+    losses = AverageMeter()
+    
+
+    tic = time.time()
+    save_dir = os.path.join(args.img_path, "val_imgs", str(epoch)) 
+
+    model.eval()
+
+    with torch.no_grad():
+        end = time.time()
+        for idx, (image, spec, audio, name, im) in tqdm(enumerate(val_loader), total=len(val_loader)):
+            spec = Variable(spec).to(device, non_blocking=True)
+            image = Variable(image).to(device, non_blocking=True)
+            B = image.size(0)
+
+            imgs_out, auds_out = model(image.float(), spec.float(), args, mode='val')
+            loss_cl =  sampled_margin_rank_loss(imgs_out, auds_out, margin=1., simtype=args.simtype)                
+
+
+            losses.update(loss_cl.item(), B)
+           
+            batch_time.update(time.time() - end)
+            end = time.time()
+    print('Epoch: [{0}]\t Eval '
+          'Loss: {loss.avg:.4f}  \t T-epoch: {t:.2f} \t'
+          .format(epoch, loss=losses, t=time.time()-tic))
+    return losses.avg, 0, 0
+
+
+def validate_org(val_loader, model, criterion, device, epoch, args):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1_meter = AverageMeter('acc@1', ':.4f')
@@ -445,6 +477,11 @@ def validate(val_loader, model, criterion, device, epoch, args):
 
     return losses.avg, top1_meter.avg, mean_ciou  
 
+def validate(val_loader, model, criterion, device, epoch, args):
+    if args.order_3_tensor:
+        return validate_3_order_tensor(val_loader, model, criterion, device, epoch, args)
+    else:
+        return validate_org(val_loader, model, criterion, device, epoch, args)
 
 def test(test_loader, model, criterion, device, epoch, args):
     batch_time = AverageMeter()
@@ -576,7 +613,7 @@ def main(args):
         
     args.gpus = list(range(torch.cuda.device_count()))
     print('Using GPU:', args.gpus)
-    
+    print('Number of CPUs:', multiprocessing.cpu_count())
 
     if args.debug_code:
         print('Debugging code')
@@ -659,8 +696,13 @@ def main(args):
         
         test(test_loader, model, criterion, device, epoch, args )
 
-        
-    train_dataset = GetAudioVideoDataset(args, mode='train')
+    if args.placesAudio:
+        train_dataset = PlacesAudio(args.placesAudio + 'train.json', args,mode='train')
+        val_dataset = PlacesAudio(args.placesAudio + 'val.json', args,mode='val')
+
+    else:
+        train_dataset = GetAudioVideoDataset(args, mode='train')
+
     if args.dataset_mode == 'VGGSound':
         val_dataset = GetAudioVideoDataset(args, mode='test' if args.val_set == 'VGGSS' else 'val')
     elif args.dataset_mode == 'Flickr':
@@ -727,9 +769,12 @@ def main(args):
     for epoch in range(args.start_epoch, args.epochs + 1 ):
         np.random.seed(epoch)
         random.seed(epoch)
-
+        print('Epoch: %d/%d' % (epoch, args.epochs))
+        start = time.time()
         train_one_epoch(train_loader, model, criterion, optim, device, epoch, args)
-
+        print('Training time: %d seconds.' % (time.time() - start))
+        print("TRAINED ONE EPOOOOOOCH!")
+        raise ValueError('Training one epoch my friend! THANK YOU!')
         if epoch >= args.eval_start:
             args.eval_freq = 1
             

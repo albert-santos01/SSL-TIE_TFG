@@ -311,7 +311,7 @@ Therefore I proceed to calculate the same loss as DAVENet:
 
 Finished for today but in the bus im adding the PlacesAudio dataset:
 1. The model has been modified to output only the audio and video feature maps (it doesn't compute the mask). The option --order_3_tensor triggers this.
-2. A LinearConv has been added to increase the embd dimensions from 512 to 1024
+2. A LinearConv has been added to increase the embd dimensions from 512 to 1024 [link model.py](./models/model.py#L124)
 3. main.py has been also modified to do epochs with the matchmap approach
 4. This new trainer can avoid the siamese equivariance configuration by not putting the opt --siamese
 5. Now that the model computes the matchmap it will compute its loss by the triple marging ranking loss
@@ -329,6 +329,42 @@ Things for next time:
 2. Now we have to add the Places Audio dataset in the code 
 3. Maybe we have to propose the validation of Harwath but not that frequently
 4. Check the Spec aug!!!!
+
+Questions for tomorrow:
+- Is it true that they apply all of this transformations but is not meant as data augmentation? Becaues they never use the original samples
+
+### 21/02/2025
+Today we had reunion and everything is written down at Notes - TFG Albert Santos
+
+Task of today 
+- maybe do the toy example
+DONE
+
+### 25/02/2025
+So today we started by checking again the toy example therefore we proceed to study how to implement the PlacesAudio Dataset:
+- We took a look on how DenseAV manages this:
+    1. It uses a abstract class to define the main properties
+    2. It has an extensive control on the path settings and manages metadata maybe for each instance with a df. It is not worth to check
+    3. However we could apply the same idea in order to manage better future datasets each one using the same data augmentation propierties.
+- I would like to check the propierties and statistics of places audio because maybe we don't have to crop from the center like Harwath does...
+- Now put ffmpeg in conda to get the statistics
+1. Install ffmpeg locally in the env of 'ssl-cpu'
+2. After checking the stats of for example flickr we notice that they are 256x256. SSL-TIE inorder to tackle this it uses a ``RandomResizeCrop`` to 224 if the img_aug is specified, if not a normal `Resize(224, Image.BICUBIC)` so it always uses this cropping. [Reference(dataloader)](./datasets/dataloader.py#L204)
+3. We checked the statistics PlacesAudio with ffmpeg at the cluster. Things to note:
+    1. fs 16kz
+    2. Images are 256x256
+
+Now let us do the abstract class for AVDataset:
+
+Okay so this abstract it only initializes the init and the desired transforms. The get item will stay with the minor change of retrieving the files by other methods. this other methods are abstract and they have to be overriden.
+the methods are:
+- `__len__`
+- `_get_file(self,index)`
+- `_get_video(self,file)`
+- `_get_audio(self,file)`
+
+Therefore the PlacesAudio class is a child class from AVDAtaset and it retrieves the data by parsing the json file, and all of this is thanks to overriding these functions. The desired split for PlacesAudio it comes with the json file.
+
 
 
 

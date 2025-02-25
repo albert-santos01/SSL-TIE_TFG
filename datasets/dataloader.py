@@ -49,13 +49,13 @@ class AVDataset(ABC, Dataset):
         self.args = args
         self.mode = mode
         self.transforms = transforms
-        self._init_transform()
-        self._init_atransform()
         self.count = 0
-        self.imgSize = args.image_size
+        self.imgSize = 224
         self.AmplitudeToDB = audio_T.AmplitudeToDB()
         self.audio_path = None
         self.video_path = None
+        self._init_transform()
+        self._init_atransform()
         self.video_files = []
 
     def _init_transform(self):
@@ -168,11 +168,13 @@ class PlacesAudio(AVDataset):
     def __init__(self, dataset_json_file, args, mode='train', transforms=None):
         super().__init__(args, mode, transforms)
 
-        with open(dataset_json_file, 'r') as fp:
+        with open(os.path.expandvars(dataset_json_file), 'r') as fp:
             data_json = json.load(fp)
         self.data = data_json['data']
         self.image_base_path = data_json['image_base_path']
         self.audio_base_path = data_json['audio_base_path']
+
+        print("PlacesAudio split: {0} dataset size: {1}".format(self.mode.upper() , len(self.data)))
 
     def __len__(self):
         return len(self.data)

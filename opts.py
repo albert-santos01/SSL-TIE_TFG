@@ -16,6 +16,9 @@ def get_arguments():
             type=str, help='soundset validation set directory' )
    
     # Added by Albert
+    parser.add_argument('--use_cuda', action='store_true', help='Use cuda')
+    parser.set_defaults(use_cuda=False)
+
     parser.add_argument('--debug_code', action='store_true', help='Debug code')
     parser.set_defaults(debug_code=False)
     parser.add_argument('--order_3_tensor', action='store_true', help='third order tensor')

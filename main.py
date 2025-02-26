@@ -221,14 +221,15 @@ def train_one_epoch_3_order_tensor(train_loader, model, criterion, optim, device
     losses_cl = AverageMeter('Loss',':.4f')
     losses_cl_ts = AverageMeter('Loss',':.4f')
     losses_ts = AverageMeter('Loss',':.4f')
-    top1_meter = AverageMeter('acc@1', ':.4f')
-    top5_meter = AverageMeter('acc@5', ':.4f')
-    top1_meter_ts = AverageMeter('acc@1', ':.4f')
-    top5_meter_ts = AverageMeter('acc@5', ':.4f')
+    # top1_meter = AverageMeter('acc@1', ':.4f')
+    # top5_meter = AverageMeter('acc@5', ':.4f')
+    # top1_meter_ts = AverageMeter('acc@1', ':.4f')
+    # top5_meter_ts = AverageMeter('acc@5', ':.4f')
 
     progress = ProgressMeter(                             
         len(train_loader),
-        [batch_time, data_time, losses, top1_meter, top5_meter],
+        # [batch_time, data_time, losses, top1_meter, top5_meter],
+        [batch_time, data_time, losses],
         prefix='Epoch:[{}]'.format(epoch))
     model.train()
     end = time.time()
@@ -325,7 +326,8 @@ def train_one_epoch_3_order_tensor(train_loader, model, criterion, optim, device
     args.train_logger.log('train Epoch: [{0}][{1}/{2}]\t'
                     'T-epoch:{t:.2f}\t'.format(epoch, idx, len(train_loader), t=time.time()-tic))
 
-    return losses.avg, top1_meter.avg
+    # return losses.avg, top1_meter.avg
+    return losses.avg, 0
 
     
 
@@ -610,7 +612,10 @@ def main(args):
     # else:
     #     os.environ["CUDA_VISIBLE_DEVICES"]=str(args.gpus)
         # args.gpus = list(range(torch.cuda.device_count()))
-        
+    if args.use_cuda:
+        if not torch.cuda.is_available():
+            raise ValueError("CUDA is not available. Please run with flag --use_cuda False")
+
     args.gpus = list(range(torch.cuda.device_count()))
     print('Using GPU:', args.gpus)
     print('Number of CPUs:', multiprocessing.cpu_count())

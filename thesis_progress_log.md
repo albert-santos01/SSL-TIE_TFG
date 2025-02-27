@@ -365,7 +365,60 @@ the methods are:
 
 Therefore the PlacesAudio class is a child class from AVDAtaset and it retrieves the data by parsing the json file, and all of this is thanks to overriding these functions. The desired split for PlacesAudio it comes with the json file.
 
+### 26/02/2025
+- We corrected the use of CUDA and added a handler that if using gpu is desired and cuda is  not enabled it stops the execution
 
+- We finally managed to do one epoch and it lasted 26 minuts
+
+Now we plan to implement WandB:
+1. Put all the loggers correctly [X]
+2. Save the model correctly
+    What I would like is that all the models are saved in `$HOME/models/exp_name/...` And exp_name should exist at CLI trigger
+2. Do a mini dataset 
+3. Check some epochs
+4. implement the images and videos
+5. Launch training!!
+6. 
+
+add the following:
+```python
+    import json
+
+    json_file = "train.json"
+
+    with open(json_file, 'r') as f:
+        data_json = json.load(f)
+
+    data = data_json['data']
+    image_base_path = data_json['image_base_path']
+    audio_base_path = data_json['audio_base_path']
+    print(image_base_path, audio_base_path)
+    print(len(data))
+
+    print(data[0]['image'])
+
+    import random
+    # Create a new json file
+    new_json_file = "train_subset.json"
+    # pick randomnly 320 samples
+    subset = random.sample(data, 20)
+    # write the subset to the new json file
+    dict_json = {'image_base_path': image_base_path, 'audio_base_path': audio_base_path, 'data': subset}
+    with open(new_json_file, 'w') as f:
+        json.dump(dict_json, f)
+
+    with open(new_json_file, 'r') as f:
+        data_json = json.load(f)
+
+    data_n = data_json
+    print(data_n)
+    print(data_n['data'][0]['image'])
+
+```
+
+Questions for the reunion:
+- Shall I save the model every epoch?
+- What is the jobs folder used for? And diff between run (meant for sbatch files)
 
 
 

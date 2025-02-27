@@ -14,6 +14,8 @@ warnings.filterwarnings("ignore")
 # sys.stderr = open(os.devnull, 'w')
 
 # Import modules (silently)
+import wandb
+
 from kornia.geometry.transform.affwarp import scale
 from numpy.lib.type_check import imag
 import torch
@@ -88,17 +90,21 @@ def cal_auc(iou):
 
 def set_path(args):
     if args.resume: 
-        exp_path = os.path.dirname(os.path.dirname(args.resume))
+        exp_path = os.path.dirname(os.path.dirname(args.resume)) # It should be the parent directory of the model
     elif args.test: 
         exp_path = os.path.dirname(os.path.dirname(args.test))
     else:
-        exp_path = 'ckpts/{args.exp_name}'.format(args=args)
+        # exp_path = 'ckpts/{args.exp_name}'.format(args=args)
+                                #TODO: Change to $SCRATCH once is fixed
+        exp_path = os.path.expandvars('$HOME/models/{args.exp_name}'.format(args=args))
         
         if not os.path.exists(exp_path):
             os.makedirs(exp_path)
+        else:
+            raise ValueError('The experiment folder already exists')
 
-    img_path = os.path.join(exp_path, 'img')
-    model_path = os.path.join(exp_path, 'model')
+    img_path = os.path.join(exp_path, 'img') #It will be $HOME/models/{args.exp_name}/img
+    model_path = os.path.join(exp_path, 'model') #It will be $HOME/models/{args.exp_name}/model and here all the models will be saved
 
     if not os.path.exists(img_path): 
         os.makedirs(img_path)
@@ -231,6 +237,7 @@ def train_one_epoch_3_order_tensor(train_loader, model, criterion, optim, device
         # [batch_time, data_time, losses, top1_meter, top5_meter],
         [batch_time, data_time, losses],
         prefix='Epoch:[{}]'.format(epoch))
+    
     model.train()
     end = time.time()
     tic = time.time()
@@ -272,16 +279,26 @@ def train_one_epoch_3_order_tensor(train_loader, model, criterion, optim, device
 
             match_map_b_ts = torch.einsum('bhwd,btd -> bhwt',imgs_out_ts, auds_out_ts)
 
-            ts_match_map = tf_equiv_loss.transform(match_map_b)
+            ts_match_map = tf_equiv_loss.transform(match_map_b) # TODO: Modify for 3rd order tensor
             loss_ts = tf_equiv_loss(match_map_b_ts, ts_match_map) # This is the transformation equivariance loss "Siamese network"
             loss = 0.5*(loss_cl + loss_cl_ts) + lambda_trans_equiv * loss_ts 
+
+            #Log batch metrics to wandb
+            wandb.log({ "batch_idx": idx,
+                        "train_loss": loss.item(), "train_loss_cl": loss_cl.item(),
+                        "train_loss_cl_ts": loss_cl_ts.item(), 
+                        "train_loss_ts": loss_ts.item(), "epoch": epoch})
         else:
             loss = loss_cl
+            #Log batch metrics to wandb
+            wandb.log({ "batch_idx": idx,
+                "train_loss": loss.item(), "epoch": epoch})
 
         losses.update(loss.item(), B)
         losses_cl.update(loss_cl.item(), B)
-        losses_cl_ts.update(loss_cl_ts.item(), B) if args.siamese else None
-        losses_ts.update(loss_ts.item(), B) if args.siamese else None
+        if args.siamese:
+            losses_cl_ts.update(loss_cl_ts.item(), B) 
+            losses_ts.update(loss_ts.item(), B) 
 
         # top1_meter.update(top1.item(), B)
         # top5_meter.update(top5.item(), B)
@@ -289,6 +306,7 @@ def train_one_epoch_3_order_tensor(train_loader, model, criterion, optim, device
         # top1_meter_ts.update(top1_ts.item(), B)
         # top5_meter_ts.update(top5_ts.item(), B)
         
+        #TODO: Check if loss is really able to backward
         optim.zero_grad()
         loss.backward()
         optim.step()
@@ -312,6 +330,8 @@ def train_one_epoch_3_order_tensor(train_loader, model, criterion, optim, device
     print('Epoch: [{0}][{1}/{2}]\t'
         'T-epoch:{t:.2f}\t'.format(epoch, idx, len(train_loader), t=time.time()-tic))
 
+
+    #TODO: More Tensorboard logging ERASE
     args.train_plotter.add_data('global/loss', losses.avg, epoch)
     args.train_plotter.add_data('global/loss_cl', losses_cl.avg, epoch)
     args.train_plotter.add_data('global/loss_cl_ts', losses_cl_ts.avg, epoch) if args.siamese else None
@@ -321,7 +341,14 @@ def train_one_epoch_3_order_tensor(train_loader, model, criterion, optim, device
     # args.train_plotter.add_data('global/top1_ts', top1_meter_ts.avg, epoch)
     # args.train_plotter.add_data('global/top5_ts', top5_meter_ts.avg, epoch)
 
-    
+    # Log the epoch metrics to wandb
+    if args.siamese:
+        wandb.log({
+                    "epoch": epoch, "train_loss_epoch": losses.avg,
+                    "train_loss_cl_epoch": losses_cl.avg, "train_loss_cl_ts_epoch": losses_cl_ts.avg,
+                    "train_loss_ts_epoch": losses_ts.avg})
+    else:
+        wandb.log({"epoch": epoch, "train_loss_epoch": losses.avg})
     
     args.train_logger.log('train Epoch: [{0}][{1}/{2}]\t'
                     'T-epoch:{t:.2f}\t'.format(epoch, idx, len(train_loader), t=time.time()-tic))
@@ -362,6 +389,8 @@ def validate_3_order_tensor(val_loader, model, criterion, device, epoch, args):
            
             batch_time.update(time.time() - end)
             end = time.time()
+    
+    wandb.log({"val_loss": losses.avg, "epoch": epoch})
     print('Epoch: [{0}]\t Eval '
           'Loss: {loss.avg:.4f}  \t T-epoch: {t:.2f} \t'
           .format(epoch, loss=losses, t=time.time()-tic))
@@ -624,7 +653,18 @@ def main(args):
         print('Debugging code')
         raise ValueError('Debugging code')
     
+    #Wandb initialization
+    config = dict(
+        learning_rate = args.learning_rate,
+        weight_decay = args.weight_decay,
+        batch_size = args.batch_size,
+        epochs = args.epochs,
+        dataset_mode = args.dataset_mode,
+        seed = args.seed)
     
+    wandb.init(project="VG_SSL-TIE", config=config)
+
+
     
     if args.debug:
         args.n_threads=0
@@ -660,7 +700,7 @@ def main(args):
 
     criterion = nn.CrossEntropyLoss()
     optim = Adam(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
-    scheduler = lr_scheduler.MultiStepLR(optim, milestones=[300,700,900], gamma=0.1)
+    scheduler = lr_scheduler.MultiStepLR(optim, milestones=[300,700,900], gamma=0.1) # Stupid bc it will never affect (100 epoch max)
     args.iteration = 1
     
     if args.test:
@@ -745,7 +785,7 @@ def main(args):
             print("[Warning] no checkpoint found at '{}', use random init".format(args.resume))
 
     else:
-        print('Train the model from scratch on {0}!'.format(args.dataset_mode))
+        print('Train the model from scratch on {0} for {1}!'.format(args.dataset_mode,args.exp_name))
 
     if torch.cuda.is_available():
         torch.backends.cudnn.benchmark = True
@@ -778,15 +818,22 @@ def main(args):
         start = time.time()
         train_one_epoch(train_loader, model, criterion, optim, device, epoch, args)
         print('Training time: %d seconds.' % (time.time() - start))
-        print("TRAINED ONE EPOOOOOOCH!")
-        raise ValueError('Training one epoch my friend! THANK YOU!')
+        
+        
         if epoch >= args.eval_start:
             args.eval_freq = 1
             
+        #It always goes here unless --eval_start x is set (default = l)
         if epoch % args.eval_freq == 0:
-            _, val_acc, mean_ciou = validate(val_loader, model, criterion, device, epoch, args)
-            is_best = mean_ciou > best_miou
-            best_miou = max(mean_ciou, best_miou)
+            val_loss, _, mean_ciou = validate(val_loader, model, criterion, device, epoch, args)
+
+            if args.order_3_tensor: #This val_loss will be considered as the metric from now
+                is_best = val_loss > best_miou               
+                best_miou = max(val_loss, best_miou)                
+            else:
+                is_best = mean_ciou > best_miou
+                best_miou = max(mean_ciou, best_miou)
+
             state_dict = model_without_dp.state_dict()
             save_dict = {
                 'epoch': epoch,
@@ -794,10 +841,14 @@ def main(args):
                 'best_miou': best_miou,
                 'optimizer': optim.state_dict(),
                 'iteration': args.iteration}
-
+            
+            
+            
+            #It will save the model and also the best one if it's considered
             save_checkpoint(save_dict, is_best, 1, 
                 filename=os.path.join(args.model_path, 'epoch%d.pth.tar' % epoch), 
                 keep_all=True)
+
         
         else:
             state_dict = model_without_dp.state_dict()

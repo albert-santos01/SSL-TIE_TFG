@@ -19,6 +19,10 @@ def get_arguments():
     parser.add_argument('--use_cuda', action='store_true', help='Use cuda')
     parser.set_defaults(use_cuda=False)
 
+    parser.add_argument("--use_wandb", action='store_true', help='Use wandb')
+    parser.set_defaults(use_wandb=False)
+    parser.add_argument("--project_wandb", default='VG_SSL-TIE', type=str, help='Wandb project name')
+
     parser.add_argument('--debug_code', action='store_true', help='Debug code')
     parser.set_defaults(debug_code=False)
     parser.add_argument('--order_3_tensor', action='store_true', help='third order tensor')

@@ -7,3 +7,4 @@ dir_of_SoundNet_Test_Data/
 experiments.ipynb
 img
 datasets/PlacesAudio_400k_distro
+wandb/

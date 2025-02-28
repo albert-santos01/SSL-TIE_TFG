@@ -42,3 +42,6 @@ A random piece of code that I found on the run:
 
 ## trainset_path & testset_path
 Interestingly they have diferent definitions of testset wether it's vggss or flickr. This is important for them since they make a mix of both datasets. However, for the current purpose of only to use Places Audio it leads to have a lot of redundant code, explicitly a lot of different clauses regarding the `dataset_mode`
+
+## args.iterations
+this argument is basically an independent counter to now how many iterations (epochs) but it always start from 1 and doesn't take into account how many epochs has already done. This is of course to handle the args.resume

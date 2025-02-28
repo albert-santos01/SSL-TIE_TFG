@@ -101,7 +101,8 @@ def set_path(args):
         if not os.path.exists(exp_path):
             os.makedirs(exp_path)
         else:
-            raise ValueError('The experiment folder already exists')
+            # raise ValueError('The experiment folder already exists')
+            print('The experiment folder already exists')
 
     img_path = os.path.join(exp_path, 'img') #It will be $HOME/models/{args.exp_name}/img
     model_path = os.path.join(exp_path, 'model') #It will be $HOME/models/{args.exp_name}/model and here all the models will be saved
@@ -244,7 +245,7 @@ def train_one_epoch_3_order_tensor(train_loader, model, criterion, optim, device
 
     lambda_trans_equiv = args.trans_equi_weight
     
-
+    loss_debug = 0
     for idx, (image, spec, audio, name, img_numpy) in enumerate(train_loader):
         data_time.update(time.time() - end)
         spec = Variable(spec).to(device, non_blocking=True)
@@ -283,16 +284,18 @@ def train_one_epoch_3_order_tensor(train_loader, model, criterion, optim, device
             loss_ts = tf_equiv_loss(match_map_b_ts, ts_match_map) # This is the transformation equivariance loss "Siamese network"
             loss = 0.5*(loss_cl + loss_cl_ts) + lambda_trans_equiv * loss_ts 
 
-            #Log batch metrics to wandb
-            wandb.log({ "batch_idx": idx,
-                        "train_loss": loss.item(), "train_loss_cl": loss_cl.item(),
-                        "train_loss_cl_ts": loss_cl_ts.item(), 
-                        "train_loss_ts": loss_ts.item(), "epoch": epoch})
+            #Log batch metrics to  wandb
+            if args.use_wandb:
+                wandb.log({ "train_loss_step": loss.item(), "train_loss_cl_step": loss_cl.item(),
+                            "train_loss_cl_ts_step": loss_cl_ts.item(), 
+                            "train_loss_ts_step": loss_ts.item(), "step": wandb.run.step})
         else:
             loss = loss_cl
-            #Log batch metrics to wandb
-            wandb.log({ "batch_idx": idx,
-                "train_loss": loss.item(), "epoch": epoch})
+            loss_debug += loss.item()
+
+            #Log batch metrics to  wandb
+            if args.use_wandb:
+                wandb.log({ "train_loss_step": loss.item(), "step": wandb.run.step})
 
         losses.update(loss.item(), B)
         losses_cl.update(loss_cl.item(), B)
@@ -341,15 +344,18 @@ def train_one_epoch_3_order_tensor(train_loader, model, criterion, optim, device
     # args.train_plotter.add_data('global/top1_ts', top1_meter_ts.avg, epoch)
     # args.train_plotter.add_data('global/top5_ts', top5_meter_ts.avg, epoch)
 
-    # Log the epoch metrics to wandb
-    if args.siamese:
-        wandb.log({
-                    "epoch": epoch, "train_loss_epoch": losses.avg,
-                    "train_loss_cl_epoch": losses_cl.avg, "train_loss_cl_ts_epoch": losses_cl_ts.avg,
-                    "train_loss_ts_epoch": losses_ts.avg})
-    else:
-        wandb.log({"epoch": epoch, "train_loss_epoch": losses.avg})
     
+    # Log the epoch metrics to # wandb
+    if args.use_wandb:
+        if args.siamese:
+            wandb.log({
+                        "train_loss_epoch": losses.avg,
+                        "train_loss_cl_epoch": losses_cl.avg, "train_loss_cl_ts_epoch": losses_cl_ts.avg,
+                        "train_loss_ts_epoch": losses_ts.avg, "epoch": epoch})
+        else:
+            assert losses.avg == loss_debug/len(train_loader), "Losses are not equal !"
+            wandb.log({"train_loss_epoch": losses.avg, "epoch": epoch})
+        
     args.train_logger.log('train Epoch: [{0}][{1}/{2}]\t'
                     'T-epoch:{t:.2f}\t'.format(epoch, idx, len(train_loader), t=time.time()-tic))
 
@@ -390,7 +396,7 @@ def validate_3_order_tensor(val_loader, model, criterion, device, epoch, args):
             batch_time.update(time.time() - end)
             end = time.time()
     
-    wandb.log({"val_loss": losses.avg, "epoch": epoch})
+    wandb.log({"val_loss": losses.avg, "epoch": epoch}) if args.use_wandb else None
     print('Epoch: [{0}]\t Eval '
           'Loss: {loss.avg:.4f}  \t T-epoch: {t:.2f} \t'
           .format(epoch, loss=losses, t=time.time()-tic))
@@ -613,7 +619,7 @@ def test(test_loader, model, criterion, device, epoch, args):
                 heatmap_img = vis_heatmap_bbox(heatmap_vis, img_vis, name_vis,\
                         bbox=bbox_vis, ciou=ciou, save_dir=save_dir )
             
-    mean_ciou = np.sum(np.array(val_ious_meter) >= 0.5)/ len(val_ious_meter)
+    mean_ciou = np.sum(np.array(val_ious_meter) >= 0.5)/ len(val_ious_meter)    
     auc_val = cal_auc(val_ious_meter)
 
             
@@ -653,16 +659,17 @@ def main(args):
         print('Debugging code')
         raise ValueError('Debugging code')
     
-    #Wandb initialization
-    config = dict(
-        learning_rate = args.learning_rate,
-        weight_decay = args.weight_decay,
-        batch_size = args.batch_size,
-        epochs = args.epochs,
-        dataset_mode = args.dataset_mode,
-        seed = args.seed)
-    
-    wandb.init(project="VG_SSL-TIE", config=config)
+    # wandb initialization
+    if args.use_wandb:
+        config = dict(
+            learning_rate = args.learning_rate,
+            weight_decay = args.weight_decay,
+            batch_size = args.batch_size,
+            epochs = args.epochs,
+            dataset_mode = args.dataset_mode,
+            seed = args.seed)
+        
+        wandb.init(project= args.project_wandb, config=config)
 
 
     
@@ -755,6 +762,7 @@ def main(args):
     elif args.dataset_mode == 'Debug':
         val_dataset = GetAudioVideoDataset(args, mode='test')
 
+    print("Creating Data loaders with %d workers" % args.n_threads)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, \
         shuffle=True, num_workers=args.n_threads, drop_last=True, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False,\

@@ -372,7 +372,7 @@ Therefore the PlacesAudio class is a child class from AVDAtaset and it retrieves
 
 Now we plan to implement WandB:
 1. Put all the loggers correctly [X]
-2. Save the model correctly
+2. Save the model correctly [x]
     What I would like is that all the models are saved in `$HOME/models/exp_name/...` And exp_name should exist at CLI trigger
 2. Do a mini dataset 
 3. Check some epochs
@@ -416,14 +416,70 @@ add the following:
 
 ```
 
+
+### 27/02/2025
+
+- We managed to implement WandB vaguely
+- We reconfigured the way to save models
+- It is expected to work correctly, thus I proceed to create a mini_subset to check the logs
+
+MAP:
+1. Do the subset [X]
+   Check args.iteration[x]
+   
+2. Launch to the cluster  [x]
+    1. see WandB procedural [x]
+    2. check if the models are being saved [x]
+    3. 
+3. Check if I can resume training 
+3. Put the images inferences somehow
+4. Read to put the benchmarks as Harwarth
+
+
+Notes: 
+- In test they make the visualisation of the heatmap check [vis_heatmap_bbox()](./utils/util.py#L37)
+
+
 Questions for the reunion:
 - Shall I save the model every epoch?
 - What is the jobs folder used for? And diff between run (meant for sbatch files)
+- The name of the run can it be set manually?
 
 
+This week progress:
+1. Vaig fer un Toy Example i funciona esperadament 
+    (21/02)
 
+2. Donat que al repo de SSL-TIE té un control dels datasets horrible ( molts ifs)  doncs fixant-me en DenseAV he fet una abstract class de AVDataset.
+    On fa totes les tranformacions de SSL-TIE i respecta clarament el processament de les dades.
+    gràcies això podrem fer coses més naturalment com DenseAV de juntar diferent datasets, també respecta tot el que había abans
+    Tot aixo debuguejat i demostrat
 
+3. Since I was not sure of PlacesAudio I did a mini study with ffmpeg to check the dimensions of the image 256x256 i el samplerate 16 fs
+    I did it because DAVENet does a center crop of the image and I was quite sckeptical of SSL-TIE which eventually it always does but with a random center.
+    With val set it does a Resize to 224 and then a center crop of 224 like why [Reference](./datasets/dataloader.py#L357)
 
+4. Fa tres dies el cluster no em deixaba utilitzar la GPU, no me la detectaba i bueno no he averiguat perquè passava aixó, però tinc ara un codi que si no es detecta i es demana gpu doncs que no entreni el model.
+Al final va funcionar i va trigar en fer un epoch amb PlacesAudio 26 minuts i amb 100 epochs trigarà 2 dies. El vaig fer només per un perque el wandb el volia fet abans i totes les coses sobre com guardar els models
 
+5. Doncs amb el repo de Julia i Xavier vaig aconseguir montar el wandb pero no es conectava a l'internet per una tonteria, i buah vaig trigar en veure'l. Jo ja em pensava que era un problema del cluster, tema proxies i tal.
 
+6. Vaig fer un subset per veure com funciona el wandb
 
+7. Vaig arreglar el merder de SSL-TIE que tenen per guardar models
+
+8. Wandb funciona, pero CUDA_ERROR amb el subset a 6 epochs
+
+9. Arreglat, només era que no li agradava el numero de workers
+
+10. VG_SSL-TIE_subset wandb project
+
+11. Ara que tot funciona he llançat el model pero no te encara com veure les imatges i els videos
+
+12. tinc el roadmap començat 
+
+Notes:
+- gc per resetejar la memória
+- fer proves per millor el batchsize i el num_workers
+- mirar bé aixo de la mem de la GPU
+- fer un random imatge ini

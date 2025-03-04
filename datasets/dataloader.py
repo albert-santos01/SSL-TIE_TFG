@@ -6,6 +6,7 @@ import torch
 import csv
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
@@ -134,13 +135,19 @@ class AVDataset(ABC, Dataset):
 
         frame = self.img_transform(self._load_frame( frame_path ))
         frame_ori = np.array(self._load_frame(frame_path))
+
         samples, samplerate = torchaudio.load(audio_path)
+        
+        
+        # #TODO
 
         if samples.shape[1] < samplerate * 10:
             n = int(samplerate * 10 / samples.shape[1]) + 1
             samples = samples.repeat(1, n)
 
         samples = samples[...,:samplerate*10]
+
+
 
         spectrogram  =  audio_T.MelSpectrogram(
                 sample_rate=samplerate,
@@ -151,14 +158,58 @@ class AVDataset(ABC, Dataset):
             )(samples)
         
         if (self.args.aud_aug=='SpecAug') and (self.mode=='train') and (random.random() < 0.8):
+            raise ValueError('Never get here')
             maskings = nn.Sequential(
                 audio_T.TimeMasking(time_mask_param=180),
                 audio_T.FrequencyMasking(freq_mask_param=35)
                 )
             spectrogram = maskings(spectrogram)
 
-        spectrogram = self.AmplitudeToDB(spectrogram)
+        spectrogram_db = self.AmplitudeToDB(spectrogram)
 
+        spec_np = spectrogram_db.squeeze(0).numpy()
+
+        spec_min, spec_max = spec_np.min(), spec_np.max()
+        spec_np = (spec_np - spec_min) / (spec_max - spec_min)  # Normalize to [0,1]
+        spec_np = (spec_np * 255).astype(np.uint8)
+
+        pil_spectrogram= Image.fromarray(spec_np)
+     
+        pil_spectrogram.save(f'images_for_study/{index}_spectrogram_img.png')
+
+        
+        plt.figure(figsize=(10, 4))
+        plt.imshow(spectrogram_db.squeeze(0).numpy(), cmap='viridis', aspect='auto')
+        plt.title('Spectrogram (dB)')
+        plt.xlabel('Time')
+        plt.ylabel('Frequency')
+        plt.colorbar(format='%+2.0f dB')
+        plt.savefig(f'images_for_study/{index}_spectrogram.png')
+        plt.close()
+    
+       
+
+        frame_np = frame.permute(1,2,0).numpy()
+        frame_min, frame_max = frame_np.min(), frame_np.max()
+        frame_np = (frame_np - frame_min) / (frame_max - frame_min )
+        frame_np = (frame_np * 255).astype(np.uint8)
+
+        frame_pil = Image.fromarray(frame_np)
+        frame_pil.save(f'images_for_study/{index}_frame_ts.png')
+
+        frame_ori_pil = Image.fromarray(frame_ori)
+        frame_ori_pil.save((f'images_for_study/{index}_frame_org.png'))
+
+        plt.figure(figsize=(10, 4))
+        plt.plot(samples[0].numpy())
+        plt.title('Waveform')
+        plt.xlabel('Time')
+        plt.ylabel('Amplitude')
+        plt.savefig(f'images_for_study/{index}_waveform.png')
+        plt.close()
+
+        
+        
 
         return frame, spectrogram, 'samples', file, torch.tensor(frame_ori)
 

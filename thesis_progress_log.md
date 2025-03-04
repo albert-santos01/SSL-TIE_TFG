@@ -483,3 +483,19 @@ Notes:
 - fer proves per millor el batchsize i el num_workers
 - mirar bé aixo de la mem de la GPU
 - fer un random imatge ini
+
+
+### 28/02/2025
+
+I start by checking why the loss is not decreasing.
+
+- First thing checked is the audio does not show a weird waveform, maybe normalizing could help
+- NORMALIZED, it says that it's already normalized [Reference](./datasets/dataloader.py#L161)
+
+- Spectrogram are dB so we cannot plot them
+
+-Curiosamente en data loader frame.max (2.64) y min-1.4930
+
+
+### 04/03/2025
+Quizas una solución es acabar con los TB pk no sirven de nada y acceden a la memoria 

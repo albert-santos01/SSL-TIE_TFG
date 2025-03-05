@@ -56,7 +56,7 @@ import multiprocessing
 
 
 from utils.utils import save_checkpoint, AverageMeter,  \
-     Logger, neq_load_customized
+     Logger, neq_load_customized, ProgressMeter
 
 
 # Restore original stderr
@@ -123,7 +123,12 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     losses_cl_ts = AverageMeter('Loss',':.4f')
     losses_ts = AverageMeter('Loss',':.4f')
 
-
+    progress = ProgressMeter(                             
+        len(train_loader),
+        # [batch_time, data_time, losses, top1_meter, top5_meter],
+        [batch_time, data_time, losses],
+        prefix='Epoch:[{}]'.format(epoch))
+    
     
     model.train()
     end = time.time()
@@ -136,7 +141,8 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     for idx, (image, spec, audio, name, img_numpy) in enumerate(train_loader):
         data_time.update(time.time() - end)
         spec = Variable(spec).to(device, non_blocking=True)
-        image = Variable(image).to(device, non_blocking=True)
+        image = Variable(image).to(device, non_blocking=True) 
+        
         B = image.size(0)
         # First branch of the siamese network
         imgs_out, auds_out = model(image.float(), spec.float(), args, mode='train')
@@ -197,9 +203,12 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         batch_time.update(time.time() - end)
         end = time.time()
 
+        if idx % args.print_freq == 0:
+            progress.display(idx)
         
         args.iteration += 1
 
+    wandb.log({"T-epoch": time.time()-tic, "epoch": epoch}) if args.use_wandb else None
     print('Epoch: [{0}][{1}/{2}]\t'
         'T-epoch:{t:.2f}\t'.format(epoch, idx, len(train_loader), t=time.time()-tic))
 

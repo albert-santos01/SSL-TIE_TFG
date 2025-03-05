@@ -32,6 +32,9 @@ def get_arguments():
     parser.set_defaults(siamese=False)
 
     parser.add_argument('--placesAudio', default='/', type=str, help='Root directory path of metadata PlacesAudio')
+    parser.add_argument('--mem_efficient', action='store_true', help='Use cuda')
+    parser.set_defaults(mem_efficient=False)
+    parser.add_argument('--free_mem_freq', default=10, type=int)
     #
     
     parser.add_argument('--trainset', default='VGGSS', type=str, help="Training dataset")

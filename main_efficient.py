@@ -2,6 +2,7 @@ import os
 import socket
 import sys
 import warnings
+import gc
 
 # Ignore all warnings of any type
 warnings.filterwarnings("ignore")
@@ -196,9 +197,9 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
             losses_ts.update(loss_ts.item(), B) 
         
         #TODO: Check if loss is really able to backward
-        optim.zero_grad()
         loss.backward()
         optim.step()
+        optim.zero_grad()
 
         batch_time.update(time.time() - end)
         end = time.time()
@@ -207,6 +208,11 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
             progress.display(idx)
         
         args.iteration += 1
+
+        if args.mem_efficient:
+            if idx % args.free_mem_freq == 0:
+                torch.cuda.empty_cache()
+                
 
     wandb.log({"T-epoch": time.time()-tic, "epoch": epoch}) if args.use_wandb else None
     print('Epoch: [{0}][{1}/{2}]\t'
@@ -226,8 +232,11 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         
     args.train_logger.log('train Epoch: [{0}][{1}/{2}]\t'
                     'T-epoch:{t:.2f}\t'.format(epoch, idx, len(train_loader), t=time.time()-tic))
+    
+    if args.mem_efficient:
+        gc.collect()
+        torch.cuda.empty_cache()
 
-    # return losses.avg, top1_meter.avg
     return losses.avg, 0
 
     

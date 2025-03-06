@@ -26,7 +26,7 @@ from torch.serialization import save
 import torchvision
 from torchvision.transforms import *
 import torch.nn as nn
-from torch.autograd import Variable
+from torch.autograd import Variable, gradcheck
 from torch.utils.data import Dataset, DataLoader, dataset
 from tensorboardX import SummaryWriter
 
@@ -51,7 +51,7 @@ from utils.eval_ import Evaluator
 from sklearn.metrics import auc
 from tqdm import tqdm
 
-from utils.util import prepare_device, vis_heatmap_bbox, tensor2img, sampled_margin_rank_loss
+from utils.util import prepare_device, vis_heatmap_bbox, tensor2img, sampled_margin_rank_loss, computeMatchmap, vis_matchmap
 from utils.tf_equivariance_loss import TfEquivarianceLoss
 import multiprocessing
 
@@ -114,9 +114,17 @@ def set_path(args):
         os.makedirs(model_path)
     return img_path, model_path, exp_path
 
+class DummyModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = nn.Linear(10, 5)  # Simple FC layer
+
+    def forward(self, x):
+        return self.fc(x)
 
 
 def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
+    torch.set_grad_enabled(True)
     batch_time = AverageMeter('Time',':.2f')
     data_time = AverageMeter('Data',':.2f')
     losses = AverageMeter('Loss',':.4f')
@@ -132,6 +140,8 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     
     
     model.train()
+
+    
     end = time.time()
     tic = time.time()
 
@@ -145,10 +155,11 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         image = Variable(image).to(device, non_blocking=True) 
         
         B = image.size(0)
+        torch.autograd.set_detect_anomaly(True)
         # First branch of the siamese network
         imgs_out, auds_out = model(image.float(), spec.float(), args, mode='train')
-
-             
+        
+        print(test)
         loss_cl =  sampled_margin_rank_loss(imgs_out, auds_out, margin=1., simtype=args.simtype)                
 
         if args.siamese:
@@ -195,9 +206,27 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         if args.siamese:
             losses_cl_ts.update(loss_cl_ts.item(), B) 
             losses_ts.update(loss_ts.item(), B) 
-        
+
+        # for name, param in model.module.named_parameters():
+        #     print(name, param.grad is not None)
+
+        # print("PEPPPEEEE")
+        # for name, param in model.named_parameters():
+        #     if param.grad is None:
+        #         print(f"No gradient for {name}")
+        #     else:
+        #         print(f"ll{name}: {param.grad.norm().item()}")
+
+        print(imgs_out.requires_grad)
+        # print(img)
+        print(loss.requires_grad)
+        print(loss.grad_fn)
+
+
         #TODO: Check if loss is really able to backward
+        
         loss.backward()
+
         optim.step()
         optim.zero_grad()
 
@@ -208,6 +237,8 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
             progress.display(idx)
         
         args.iteration += 1
+        raise Exception("EEEEEEEE")
+                
 
         if args.mem_efficient:
             if idx % args.free_mem_freq == 0:
@@ -251,6 +282,8 @@ def validate(val_loader, model, criterion, device, epoch, args):
     save_dir = os.path.join(args.img_path, "val_imgs", str(epoch)) 
 
     model.eval()
+    random_idx = random.randint(0, len(val_loader) - 1)
+    random_sample = random.randint(0, args.batch_size - 1)
 
     with torch.no_grad():
         end = time.time()
@@ -267,6 +300,18 @@ def validate(val_loader, model, criterion, device, epoch, args):
            
             batch_time.update(time.time() - end)
             end = time.time()
+            if args.video:
+                if idx==random_idx:
+                    img_emb = imgs_out[random_sample]
+                    aud_emb = auds_out[random_sample]
+                    matchmap = computeMatchmap(img_emb,aud_emb)
+
+                    matchmap_array = matchmap.data.cpu().numpy()
+
+                    img_org = im[random_sample]
+                    vis_matchmap(matchmap_array,img_org,video_name=f'epoch_{epoch}',epoch=epoch,save_dir=args.img_path,args=args)
+
+                    
     
     wandb.log({"val_loss": losses.avg, "epoch": epoch}) if args.use_wandb else None
     print('Epoch: [{0}]\t Eval '
@@ -576,7 +621,15 @@ def main(args):
             torch.cuda.empty_cache()
         start = time.time()
         train_one_epoch(train_loader, model, criterion, optim, device, epoch, args)
+
+        for name, param in model.named_parameters():
+            if param.grad is None:
+                print(f"No gradient for {name}")
+            else:
+                print(f"{name}: {param.grad.norm().item()}")
+
         print('Training time: %d seconds.' % (time.time() - start))
+        
         
         
         if epoch >= args.eval_start:

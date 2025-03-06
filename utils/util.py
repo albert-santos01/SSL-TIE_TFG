@@ -3,6 +3,9 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import os
+import wandb
+
+class AverageMeter(object):
 
 def prepare_device(n_gpu_use):
     """
@@ -32,6 +35,44 @@ def normalize_img(value, vmax=None, vmin=None):
         value = (value - vmin) / (vmax - vmin)  # vmin..vmax
 
     return value
+
+def vis_matchmap(matchmap, img_array, video_name, epoch, save_dir, args, img_size=224):
+    '''
+    Visualization for the matchmap video
+    matchmap  shape [14,14,128]
+    img_array shape [3, H, W]
+    '''
+
+    img = cv2.cvtColor(img_array.astype(np.uint8), cv2.COLOR_RGB2BGR)
+    img = cv2.resize(img,(img_size, img_size))
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    
+    
+    video_path = os.path.join(save_dir, f"{video_name}.mp4")
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(video_path, fourcc, 1.0, (img_size, img_size))
+
+    for i in range(np.shape(matchmap)[2]):
+        matchmap_i = matchmap[:, :, i]
+        matchmap_i = cv2.resize(matchmap_i, dsize=(img_size, img_size), interpolation=cv2.INTER_LINEAR)
+        matchmap_i = normalize_img(-matchmap_i)
+
+        for x in range(matchmap_i.shape[0]):
+            for y in range(matchmap_i.shape[1]):
+                matchmap_i[x][y] = (matchmap_i[x][y] * 255).astype(np.uint8)
+
+        matchmap_i = matchmap_i.astype(np.uint8)
+        matchmap_i_img = cv2.applyColorMap(matchmap_i, cv2.COLORMAP_JET)
+        matchmap_i_img = cv2.addWeighted(matchmap_i_img, 0.5, img, 0.5, 0)
+        matchmap_i_img_BGR = cv2.cvtColor(matchmap_i_img, cv2.COLOR_RGB2BGR)
+        out.write(matchmap_i_img_BGR)
+
+        out.release()
+
+    if args.use_wandb:
+        wandb.log({"video": wandb.Video(video_path), "epoch": epoch})
+
 
 
 def vis_heatmap_bbox(heatmap_arr, img_array, img_name=None, bbox=None, ciou=None,  testset=None, img_size=224, save_dir=None ):
@@ -250,6 +291,61 @@ def tensor2img(img, imtype=np.uint8, resolution=(224,224), unnormalize=True):
 
     return img_numpy
 
+def calc_recalls(image_outputs, audio_outputs, nframes, simtype='MISA'):
+    """
+	Computes recall at 1, 5, and 10 given encoded image and audio outputs.
+	"""
+    S = compute_matchmap_similarity_matrix(image_outputs, audio_outputs, nframes, simtype=simtype)
+    n = S.size(0)
+    A2I_scores, A2I_ind = S.topk(10, 0)
+    I2A_scores, I2A_ind = S.topk(10, 1)
+    A_r1 = AverageMeter()
+    A_r5 = AverageMeter()
+    A_r10 = AverageMeter()
+    I_r1 = AverageMeter()
+    I_r5 = AverageMeter()
+    I_r10 = AverageMeter()
+    for i in range(n):
+        A_foundind = -1
+        I_foundind = -1
+        for ind in range(10):
+            if A2I_ind[ind, i] == i:
+                I_foundind = ind
+            if I2A_ind[i, ind] == i:
+                A_foundind = ind
+        # do r1s
+        if A_foundind == 0:
+            A_r1.update(1)
+        else:
+            A_r1.update(0)
+        if I_foundind == 0:
+            I_r1.update(1)
+        else:
+            I_r1.update(0)
+        # do r5s
+        if A_foundind >= 0 and A_foundind < 5:
+            A_r5.update(1)
+        else:
+            A_r5.update(0)
+        if I_foundind >= 0 and I_foundind < 5:
+            I_r5.update(1)
+        else:
+            I_r5.update(0)
+        # do r10s
+        if A_foundind >= 0 and A_foundind < 10:
+            A_r10.update(1)
+        else:
+            A_r10.update(0)
+        if I_foundind >= 0 and I_foundind < 10:
+            I_r10.update(1)
+        else:
+            I_r10.update(0)
+
+    recalls = {'A_r1':A_r1.avg, 'A_r5':A_r5.avg, 'A_r10':A_r10.avg,
+                'I_r1':I_r1.avg, 'I_r5':I_r5.avg, 'I_r10':I_r10.avg}
+                #'A_meanR':A_meanR.avg, 'I_meanR':I_meanR.avg}
+
+    return recalls
 
 def computeMatchmap(I, A):
     """

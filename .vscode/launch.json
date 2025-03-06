@@ -87,7 +87,7 @@
             "name": "Train PlacesAudio subset",
             "type": "debugpy",
             "request": "launch",
-            "program": "main.py",
+            "program": "main_efficient.py",
             "console": "integratedTerminal",
             "args": [   
                 "--batch_size", "16",

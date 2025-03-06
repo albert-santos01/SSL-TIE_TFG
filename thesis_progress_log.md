@@ -499,3 +499,28 @@ I start by checking why the loss is not decreasing.
 
 ### 04/03/2025
 Quizas una solución es acabar con los TB pk no sirven de nada y acceden a la memoria 
+
+### 06/03/2025
+Okay so the past days it has been very difficult to go on with the thesis due to the necessity of Networking at MWC therefore little progress have been done. 
+- A new main called `main_efficient.py` has been created and this one has nothing to do with the original code it directly computes the matchmap and nothing with the TB
+- Three new jobs were submitted yesterday and we have the following conclusions:
+
+    `111384` -> ``normald-r_ord_loss`` has ``16 workers``  and batch size `32` 
+            DIED at epoch 9 DataLoader starting again and system memory exploded to 11.57 (maybe GB)
+            T-epoch. 1025 secs
+
+    `111409` -> `n_w_4` has 4 workers batch size of 32
+            Still running
+            Somehow at almost 14 hours (48th epoch) the system memory fell drastically and curiosly it started reading from disk ¿?
+            T-epoch 1110 secs aprox 18mins expected finishing time: 2 days and 6 hours
+            The GPU memory used in this case is 9% we could double the batch size
+
+    `111413` -> `mem_eff` 16 workers and batch size of 32
+            DIED at epoch 3
+            it had a sudden spike of in system memory 
+
+    `120216`-> `n4_b64_mem` 4 workers and batch size of 64 
+            it has mem_eff true
+    
+
+    `120214` -> `again_mem_eff` n16 b 32

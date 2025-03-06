@@ -571,6 +571,9 @@ def main(args):
         np.random.seed(epoch)
         random.seed(epoch)
         print('Epoch: %d/%d' % (epoch, args.epochs))
+        if args.mem_efficient:
+            gc.collect()
+            torch.cuda.empty_cache()
         start = time.time()
         train_one_epoch(train_loader, model, criterion, optim, device, epoch, args)
         print('Training time: %d seconds.' % (time.time() - start))

@@ -300,6 +300,7 @@ def validate(val_loader, model, criterion, device, epoch, args):
            
             batch_time.update(time.time() - end)
             end = time.time()
+
             if args.video:
                 if idx==random_idx:
                     img_emb = imgs_out[random_sample]
@@ -310,7 +311,24 @@ def validate(val_loader, model, criterion, device, epoch, args):
 
                     img_org = im[random_sample]
                     vis_matchmap(matchmap_array,img_org,video_name=f'epoch_{epoch}',epoch=epoch,save_dir=args.img_path,args=args)
+        
+        
+    #     recalls = calc_recalls(image_output, audio_output, nframes, simtype=args.simtype)
+    #     A_r10 = recalls['A_r10']
+    #     I_r10 = recalls['I_r10']
+    #     A_r5 = recalls['A_r5']
+    #     I_r5 = recalls['I_r5']
+    #     A_r1 = recalls['A_r1']
+    #     I_r1 = recalls['I_r1']
 
+    # print(' * Audio R@10 {A_r10:.3f} Image R@10 {I_r10:.3f} over {N:d} validation pairs'
+    #       .format(A_r10=A_r10, I_r10=I_r10, N=N_examples), flush=True)
+    # print(' * Audio R@5 {A_r5:.3f} Image R@5 {I_r5:.3f} over {N:d} validation pairs'
+    #       .format(A_r5=A_r5, I_r5=I_r5, N=N_examples), flush=True)
+    # print(' * Audio R@1 {A_r1:.3f} Image R@1 {I_r1:.3f} over {N:d} validation pairs'
+    #       .format(A_r1=A_r1, I_r1=I_r1, N=N_examples), flush=True)
+
+    # return recalls
                     
     
     wandb.log({"val_loss": losses.avg, "epoch": epoch}) if args.use_wandb else None

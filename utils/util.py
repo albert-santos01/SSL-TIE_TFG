@@ -6,6 +6,21 @@ import os
 import wandb
 
 class AverageMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
 
 def prepare_device(n_gpu_use):
     """
@@ -23,7 +38,6 @@ def prepare_device(n_gpu_use):
     device = torch.device('cuda:0' if n_gpu_use > 0 else 'cpu')
     list_ids = list(range(n_gpu_use))
     return device, list_ids
-
 
 def normalize_img(value, vmax=None, vmin=None):
     '''
@@ -72,8 +86,6 @@ def vis_matchmap(matchmap, img_array, video_name, epoch, save_dir, args, img_siz
 
     if args.use_wandb:
         wandb.log({"video": wandb.Video(video_path), "epoch": epoch})
-
-
 
 def vis_heatmap_bbox(heatmap_arr, img_array, img_name=None, bbox=None, ciou=None,  testset=None, img_size=224, save_dir=None ):
     '''
@@ -149,11 +161,6 @@ def vis_heatmap_bbox(heatmap_arr, img_array, img_name=None, bbox=None, ciou=None
         
         return np.array(heatmap_on_img)
         
-
-
-
-
-
 
 def vis_masks(masks, img_array, img_name=None, bbox=None, ciou=None,  testset=None, img_size=224, save_dir=None ):
     '''
@@ -265,9 +272,8 @@ def max_norm(p, version='torch', e=1e-5):
             p = (p-min_v-e)/(max_v+e)
     return p
 
-
-
 def tensor2img(img, imtype=np.uint8, resolution=(224,224), unnormalize=True):
+
     img = img.cpu()
     if len(img.shape) == 4:
         img = img[0]
@@ -290,6 +296,22 @@ def tensor2img(img, imtype=np.uint8, resolution=(224,224), unnormalize=True):
         img_numpy = cv2.resize(img_numpy, resolution) 
 
     return img_numpy
+
+def compute_matchmap_similarity_matrix(image_outputs, audio_outputs, nframes, simtype='MISA'):
+    """
+    Assumes image_outputs is a (batchsize, embedding_dim, rows, height) tensor
+    Assumes audio_outputs is a (batchsize, embedding_dim, 1, time) tensor
+    Returns similarity matrix S where images are rows and audios are along the columns
+    """
+    assert(image_outputs.dim() == 4)
+    assert(audio_outputs.dim() == 3)
+    n = image_outputs.size(0)
+    S = torch.zeros(n, n, device=image_outputs.device)
+    for image_idx in range(n):
+            for audio_idx in range(n):
+                nF = max(1, nframes[audio_idx])
+                S[image_idx, audio_idx] = matchmapSim(computeMatchmap(image_outputs[image_idx], audio_outputs[audio_idx][:, 0:nF]), simtype)
+    return S
 
 def calc_recalls(image_outputs, audio_outputs, nframes, simtype='MISA'):
     """

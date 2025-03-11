@@ -299,6 +299,7 @@ def tensor2img(img, imtype=np.uint8, resolution=(224,224), unnormalize=True):
 
 def compute_matchmap_similarity_matrix(image_outputs, audio_outputs, nframes, simtype='MISA'):
     """
+    TODO: We have to reorder dimensions
     Assumes image_outputs is a (batchsize, embedding_dim, rows, height) tensor
     Assumes audio_outputs is a (batchsize, embedding_dim, 1, time) tensor
     Returns similarity matrix S where images are rows and audios are along the columns

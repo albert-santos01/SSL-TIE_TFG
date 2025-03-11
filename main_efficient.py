@@ -114,14 +114,6 @@ def set_path(args):
         os.makedirs(model_path)
     return img_path, model_path, exp_path
 
-class DummyModel(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.fc = nn.Linear(10, 5)  # Simple FC layer
-
-    def forward(self, x):
-        return self.fc(x)
-
 
 def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     torch.set_grad_enabled(True)
@@ -138,7 +130,7 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         [batch_time, data_time, losses],
         prefix='Epoch:[{}]'.format(epoch))
     
-    
+    # basicblock = BasicBlock()
     model.train()
 
     
@@ -159,7 +151,6 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         # First branch of the siamese network
         imgs_out, auds_out = model(image.float(), spec.float(), args, mode='train')
         
-        print(test)
         loss_cl =  sampled_margin_rank_loss(imgs_out, auds_out, margin=1., simtype=args.simtype)                
 
         if args.siamese:
@@ -194,6 +185,7 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
                             "train_loss_cl_ts_step": loss_cl_ts.item(), 
                             "train_loss_ts_step": loss_ts.item(), "step": wandb.run.step})
         else:
+            
             loss = loss_cl
             loss_debug += loss.item()
 
@@ -207,15 +199,6 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
             losses_cl_ts.update(loss_cl_ts.item(), B) 
             losses_ts.update(loss_ts.item(), B) 
 
-        # for name, param in model.module.named_parameters():
-        #     print(name, param.grad is not None)
-
-        # print("PEPPPEEEE")
-        # for name, param in model.named_parameters():
-        #     if param.grad is None:
-        #         print(f"No gradient for {name}")
-        #     else:
-        #         print(f"ll{name}: {param.grad.norm().item()}")
 
         print(imgs_out.requires_grad)
         # print(img)
@@ -225,10 +208,10 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
 
         #TODO: Check if loss is really able to backward
         
+        optim.zero_grad()
         loss.backward()
 
         optim.step()
-        optim.zero_grad()
 
         batch_time.update(time.time() - end)
         end = time.time()
@@ -237,7 +220,6 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
             progress.display(idx)
         
         args.iteration += 1
-        raise Exception("EEEEEEEE")
                 
 
         if args.mem_efficient:
@@ -300,6 +282,7 @@ def validate(val_loader, model, criterion, device, epoch, args):
            
             batch_time.update(time.time() - end)
             end = time.time()
+            
 
             if args.video:
                 if idx==random_idx:
@@ -638,6 +621,7 @@ def main(args):
             gc.collect()
             torch.cuda.empty_cache()
         start = time.time()
+
         train_one_epoch(train_loader, model, criterion, optim, device, epoch, args)
 
         for name, param in model.named_parameters():

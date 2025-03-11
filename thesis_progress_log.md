@@ -514,15 +514,65 @@ Okay so the past days it has been very difficult to go on with the thesis due to
             Somehow at almost 14 hours (48th epoch) the system memory fell drastically and curiosly it started reading from disk ¿?
             T-epoch 1110 secs aprox 18mins expected finishing time: 2 days and 6 hours
             The GPU memory used in this case is 9% we could double the batch size
+            COMPLETED!!!!!!
 
     `111413` -> `mem_eff` 16 workers and batch size of 32
             DIED at epoch 3
             it had a sudden spike of in system memory 
 
-    `120216`-> `n4_b64_mem` 4 workers and batch size of 64 
-            it has mem_eff true
-    
+    `120216`-> `n4_b64` 4 workers and batch size of 64 
+            Still running
 
     `120214` -> `again_mem_eff` n16 b 32
+            DIED at Wandb HOWEVER still running.
 
     `120221` -> `SISA_n4b64`
+            Still running
+
+    `120286` -> `n4_b128`
+    Code is not available at the moment
+
+    ### 07/03/2025
+
+    Meeting today:
+    - MWC coudlnt do much
+    - He encontrado el problema y no la solución del loss
+    - Input images as shown (Transformations are fine)
+    - Ja tinc suposadament montat la pujada de videos al wandb i l'avaluació quantitativa de Harwarth (no té misteri es copiar i pegar(no posat en practica
+    ))
+    - Did another main  mas limpio because supose que el TB afectaba la memoria
+    - He posat la possibilitat de netejar: 
+        - la cuda cache dins del batch loader amb la desitjada ``frequencia`` i una vegada acabat el epoch, prime gc i despres cuda cache
+    - No té un impacte significant, simplement pot evitar un increment de memoria inesperat el que sí acaba es amb la chain de Wandb
+    - Si peta es pk ha passat algo amb el multiprocessing de python
+    - Amb 16 workers sempre peta, només s'ha salvat un que li ha petat el wandb
+    - Recomanació (n_cpus/2 or nGPUs*4) llavors amb 4 m'ha arribat fins al final
+    - Faig proves amb n4 b 64 va bé  nomes incrementa l'us de la GPU pero no hiha significativament una reducció de temps
+    
+    - Proves que he fet per comprobar la baixada del loss:
+        - Les imatges no so son negres
+        - L'audio i els spectrogrames son aparentment coherents (freq bands cancelled maybe)
+        - El loss es una mica especial peró te gradient i es un valor.
+
+        - Els parametres requereixen gradient peró no es guarden llavors loss.backwards() No funciona
+
+        - No sé pq pero jo el que faig es trobar on es trenca la cadena amb
+            ```python
+            for name, param in self.named_parameters():
+                if param.requires_grad:
+                    print(f"{name} has gradient computed: {param.grad is not None}")
+            ```
+        
+            Pregunta, només fent una operació ja està en el graf, no?
+
+    El nombre de workers afecta al començament del epoch, es tot el process
+
+
+- Comentar a Xavi el InfoNCE loss
+
+Feedback:
+- Començo de nou el codi
+- Aplico InfoNCE
+- Connectar els grafos
+
+

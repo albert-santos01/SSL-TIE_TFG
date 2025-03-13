@@ -429,3 +429,50 @@ def sampled_margin_rank_loss(image_outputs, audio_outputs, margin=1., simtype='M
             loss = loss + I2A_simdif
     loss = loss / B
     return loss
+
+def infoNCE_loss(image_outputs, audio_outputs,args):
+    """
+        images_outputs (B x H x W x C) 
+        audio_outputs  (B x T x C)
+        Assumption: the channel dimension is already normalized
+    """
+    #gradient of image_outputs = grad_fn=<PermuteBackward0>
+    B = image_outputs.size(0)
+    device = image_outputs.device
+    #TODO: Should we require grad to sims?
+    sims = torch.zeros(B, B, device=device)
+    mask = torch.eye(B, device=device)
+
+    for i in range(B):
+        for j in range(B):
+            sim_i_j = matchmapSim(computeMatchmap(image_outputs[i], audio_outputs[j]), args.simtype)
+            #sim_i_j grad_fn=<MeanBackward0>
+            sims[i, j] = sim_i_j
+    # sims grad_fn=<CopySlices>
+    sims = torch.exp(sims / args.temperature)
+    pos= sims * mask
+    neg = sims * (1 - mask)
+
+    # TODO: Normalize the rows and columns???
+    # pos = pos / pos.sum(1, keepdim=True)
+    # neg = neg / neg.sum(1, keepdim=True)
+
+    # This iterates the images against their negative audios...
+    loss_v_a = -torch.log(pos.sum(dim=1) / (pos.sum(dim=1) + neg.sum(dim=1))).mean() / 2 
+    # This iterates the audios against their negative images...
+    loss_a_v = -torch.log(pos.sum(dim=0) / (pos.sum(dim=0) + neg.sum(dim=0))).mean() / 2
+    loss = loss_v_a + loss_a_v
+
+    return loss
+
+
+
+
+
+
+
+
+
+
+
+    

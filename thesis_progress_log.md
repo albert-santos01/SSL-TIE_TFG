@@ -576,3 +576,22 @@ Feedback:
 - Connectar els grafos
 
 
+### 12/03/2025
+
+Today we launched the official code of SSL-TIE with PlacesAudio, apparently is learning something:
+- We cloned the offical code
+- We added WandB  and places audio dataset and modified to not do the validatons with anno
+- It has been submitted to the cluster, now it's apparently learning
+
+With this we confirm that the modifications to fit PlacesAudio do not prevent the model from learning
+
+Now we proceed to apply loss made by Hamilton et al. 2024
+
+pos
+tensor([[8.9156e+03, 1.0000e+00, 1.0000e+00],
+        [1.0000e+00, 7.5594e+03, 1.0000e+00],
+        [1.0000e+00, 1.0000e+00, 8.2540e+03]], grad_fn=<ExpBackward0>)
+neg
+tensor([[1.0000e+00, 1.0003e+04, 8.2822e+03],
+        [7.7864e+03, 1.0000e+00, 6.8114e+03],
+        [9.5202e+03, 9.6058e+03, 1.0000e+00]], grad_fn=<ExpBackward0>)

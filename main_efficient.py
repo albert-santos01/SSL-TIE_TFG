@@ -51,7 +51,7 @@ from utils.eval_ import Evaluator
 from sklearn.metrics import auc
 from tqdm import tqdm
 
-from utils.util import prepare_device, vis_heatmap_bbox, tensor2img, sampled_margin_rank_loss, computeMatchmap, vis_matchmap
+from utils.util import prepare_device, vis_heatmap_bbox, tensor2img, sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss
 from utils.tf_equivariance_loss import TfEquivarianceLoss
 import multiprocessing
 
@@ -151,7 +151,8 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         # First branch of the siamese network
         imgs_out, auds_out = model(image.float(), spec.float(), args, mode='train')
         
-        loss_cl =  sampled_margin_rank_loss(imgs_out, auds_out, margin=1., simtype=args.simtype)                
+        # loss_cl =  sampled_margin_rank_loss(imgs_out, auds_out, margin=1., simtype=args.simtype)   
+        loss_cl = infoNCE_loss(imgs_out,auds_out, args)        
 
         if args.siamese:
 
@@ -275,8 +276,9 @@ def validate(val_loader, model, criterion, device, epoch, args):
             B = image.size(0)
 
             imgs_out, auds_out = model(image.float(), spec.float(), args, mode='val')
-            loss_cl =  sampled_margin_rank_loss(imgs_out, auds_out, margin=1., simtype=args.simtype)                
-
+            # loss_cl =  sampled_margin_rank_loss(imgs_out, auds_out, margin=1., simtype=args.simtype)
+                            
+            loss_cl = infoNCE_loss(imgs_out,auds_out, args)
 
             losses.update(loss_cl.item(), B)
            
@@ -624,11 +626,6 @@ def main(args):
 
         train_one_epoch(train_loader, model, criterion, optim, device, epoch, args)
 
-        for name, param in model.named_parameters():
-            if param.grad is None:
-                print(f"No gradient for {name}")
-            else:
-                print(f"{name}: {param.grad.norm().item()}")
 
         print('Training time: %d seconds.' % (time.time() - start))
         

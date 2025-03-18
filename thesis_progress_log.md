@@ -595,3 +595,100 @@ neg
 tensor([[1.0000e+00, 1.0003e+04, 8.2822e+03],
         [7.7864e+03, 1.0000e+00, 6.8114e+03],
         [9.5202e+03, 9.6058e+03, 1.0000e+00]], grad_fn=<ExpBackward0>)
+
+
+### 14/03/2025
+
+#### REUNIÓ:
+
+1. SSL-TIE de 0:
+    - Intentar descarregar Flickr-Sound
+        El link cau avegades i no es descarrega complet
+        Tot per reproduir els resultats
+    - Modificacions:
+        - Cluster
+        - WandB
+        - PlacesAudio Dataset class with the Abstract Class
+    
+Resultat:
+Només entrenat amb PlacesAudio -> apren però lógicament s'estanca (invariant del temps)
+Conclusió: La incorporació de PlacesAudio no és el problema
+
+2. InfoNCE Loss (Aplicar Hamilton et al. 2024)
+
+    1. El codi de Hamilton està a lightning, no consegueixo veure d'on surt les similarities 
+        [Ref at init](DenseAV/denseav/train.py#L325)
+        [Contrastive loss](DenseAV/denseav/train.py#L515)
+        [Loss](DenseAV/denseav/train.py#L556)
+        Es dedicar massa temps
+    2. Implemento bassant-me al paper:
+        Faig MISA pels B^2 samples, iterant pel batch dues vegades
+Codi [Codi](./utils/util.py#L433)
+
+```python
+def infoNCE_loss(image_outputs, audio_outputs,args):
+    """
+        images_outputs (B x H x W x C) 
+        audio_outputs  (B x T x C)
+        Assumption: the channel dimension is already normalized
+    """
+    #gradient of image_outputs = grad_fn=<PermuteBackward0>
+    B = image_outputs.size(0)
+    device = image_outputs.device
+    #TODO: Should we require grad to sims?
+    sims = torch.zeros(B, B, device=device)
+    mask = torch.eye(B, device=device)
+
+    for i in range(B):
+        for j in range(B):
+            sim_i_j = matchmapSim(computeMatchmap(image_outputs[i], audio_outputs[j]), args.simtype)
+            #sim_i_j grad_fn=<MeanBackward0>
+            sims[i, j] = sim_i_j
+    # sims grad_fn=<CopySlices>
+    sims = torch.exp(sims / args.temperature) #0.07
+    pos= sims * mask
+    neg = sims * (1 - mask)
+
+    # TODO: Normalize the rows and columns???
+    # pos = pos / pos.sum(1, keepdim=True)
+    # neg = neg / neg.sum(1, keepdim=True)
+
+    # This iterates the images against their negative audios...
+    loss_v_a = -torch.log(pos.sum(dim=1) / (pos.sum(dim=1) + neg.sum(dim=1))).mean() / 2 
+    # This iterates the audios against their negative images...
+    loss_a_v = -torch.log(pos.sum(dim=0) / (pos.sum(dim=0) + neg.sum(dim=0))).mean() / 2
+    loss = loss_v_a + loss_a_v
+
+    return loss
+
+def computeMatchmap(I, A):
+    """
+    Computes the 3rd order tensor of matchmap between image and audio.
+    Its the dot product.
+    """
+    assert(I.dim() == 3)
+    assert(A.dim() == 2)  
+    matchmap = torch.einsum('hwc,tc->hwt', I, A)
+    return matchmap
+
+def matchmapSim(M, simtype):
+    assert(M.dim() == 3)
+    if simtype == 'SISA':
+        return M.mean()
+    elif simtype == 'MISA':
+        M_maxH, _ = M.max(0)
+        M_maxHW, _ = M_maxH.max(0)
+        return M_maxHW.mean()
+    elif simtype == 'SIMA':
+        M_maxT, _ = M.max(2)
+        return M_maxT.mean()
+    else:
+        raise ValueError('Unknown similarity type: %s' % simtype)
+````
+
+El model no apren encara, els epochs ara trigan una hora.
+
+
+
+
+

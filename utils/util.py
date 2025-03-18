@@ -430,10 +430,33 @@ def sampled_margin_rank_loss(image_outputs, audio_outputs, margin=1., simtype='M
     loss = loss / B
     return loss
 
+def similarity_matrix_bxb(img_outs, aud_outs,temp=0.07):
+    """
+        img_outs (B x C x H x W) 
+        aud_outs  (B x C x T)
+        Assumption: the channel dimension is already normalized
+    """
+    assert(img_outs.dim() == 4)
+    assert(aud_outs.dim() == 3)
+    s_outs = torch.einsum('bct, pchw -> bpthw', aud_outs, img_outs)
+
+    #MI
+    s_outs, _ = s_outs.max(-1) # x spatial
+    s_outs, _ = s_outs.max(-1) # y spatial
+    #MISA
+    s_outs = s_outs.mean(-1) # t temporal
+
+    s_outs = torch.exp(s_outs / temp)
+
+    return s_outs
+
+
+    
+
 def infoNCE_loss(image_outputs, audio_outputs,args):
     """
-        images_outputs (B x H x W x C) 
-        audio_outputs  (B x T x C)
+        images_outputs (B x C x H x W) 
+        audio_outputs  (B x C x T)
         Assumption: the channel dimension is already normalized
     """
     #gradient of image_outputs = grad_fn=<PermuteBackward0>
@@ -443,14 +466,8 @@ def infoNCE_loss(image_outputs, audio_outputs,args):
     sims = torch.zeros(B, B, device=device)
     mask = torch.eye(B, device=device)
 
-    for i in range(B):
-        for j in range(B):
-            sim_i_j = matchmapSim(computeMatchmap(image_outputs[i], audio_outputs[j]), args.simtype)
-            #sim_i_j grad_fn=<MeanBackward0>
-            sims[i, j] = sim_i_j
-    # sims grad_fn=<CopySlices>
-    sims = torch.exp(sims / args.temperature)
-    pos= sims * mask
+    sims =  similarity_matrix_bxb(image_outputs, audio_outputs,args.temperature)
+    pos = sims * mask
     neg = sims * (1 - mask)
 
     # TODO: Normalize the rows and columns???

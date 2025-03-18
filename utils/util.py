@@ -435,6 +435,7 @@ def similarity_matrix_bxb(img_outs, aud_outs,temp=0.07):
         img_outs (B x C x H x W) 
         aud_outs  (B x C x T)
         Assumption: the channel dimension is already normalized
+        Returns a B x B similarity matrix: (exp(s_ij / temp))
     """
     assert(img_outs.dim() == 4)
     assert(aud_outs.dim() == 3)
@@ -458,21 +459,15 @@ def infoNCE_loss(image_outputs, audio_outputs,args):
         images_outputs (B x C x H x W) 
         audio_outputs  (B x C x T)
         Assumption: the channel dimension is already normalized
+        Returns the InfoNCE loss
     """
-    #gradient of image_outputs = grad_fn=<PermuteBackward0>
+   
     B = image_outputs.size(0)
-    device = image_outputs.device
-    #TODO: Should we require grad to sims?
-    sims = torch.zeros(B, B, device=device)
-    mask = torch.eye(B, device=device)
+    mask = torch.eye(B, device=image_outputs.device)
 
     sims =  similarity_matrix_bxb(image_outputs, audio_outputs,args.temperature)
     pos = sims * mask
     neg = sims * (1 - mask)
-
-    # TODO: Normalize the rows and columns???
-    # pos = pos / pos.sum(1, keepdim=True)
-    # neg = neg / neg.sum(1, keepdim=True)
 
     # This iterates the images against their negative audios...
     loss_v_a = -torch.log(pos.sum(dim=1) / (pos.sum(dim=1) + neg.sum(dim=1))).mean() / 2 

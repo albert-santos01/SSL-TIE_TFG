@@ -130,9 +130,8 @@ class AVENet(nn.Module):
         aud = torch.mean(aud, dim=2) # B x 1024 x 58
         aud = nn.functional.normalize(aud, dim=1)
 
-        # Reshape image and audio embeddings
-        img = img.permute(0, 2, 3, 1)  # (B, 14, 14, 1024)
-        aud = aud.permute(0, 2, 1)      # (B, 58, 1024)
+        # img   (B x 1024 x 14 x 14)
+        # aud   (B x 1024 x 58)
 
         return img, aud
 

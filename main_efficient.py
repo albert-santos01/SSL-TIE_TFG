@@ -462,8 +462,11 @@ def main(args):
             epochs = args.epochs,
             dataset_mode = args.dataset_mode,
             seed = args.seed)
+        if args.run_name:
+            wandb.init(project=args.project_wandb, config=config, name=args.run_name)
+        else:
+            wandb.init(project=args.project_wandb, config=config)
         
-        wandb.init(project= args.project_wandb, config=config)
 
 
     

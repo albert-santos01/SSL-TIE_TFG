@@ -18,10 +18,11 @@ def get_arguments():
     # Added by Albert
     parser.add_argument('--use_cuda', action='store_true', help='Use cuda')
     parser.set_defaults(use_cuda=False)
-
+        #wandb
     parser.add_argument("--use_wandb", action='store_true', help='Use wandb')
     parser.set_defaults(use_wandb=False)
     parser.add_argument("--project_wandb", default='VG_SSL-TIE', type=str, help='Wandb project name')
+    parser.add_argument("--run_name",default=None,type=str, help='Run name for the wandb project')
 
     parser.add_argument('--debug_code', action='store_true', help='Debug code')
     parser.set_defaults(debug_code=False)

@@ -47,8 +47,8 @@ class AVENet(nn.Module):
         self.vpool3 = nn.MaxPool2d(14, stride=14)
 
         # Linear Convolution
-        self.linearConv = nn.Conv2d(512, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-
+        self.linearConvImg = nn.Conv2d(512, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        self.linearConvAud = nn.Conv2d(512, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -121,12 +121,12 @@ class AVENet(nn.Module):
         # Image
         B = image.shape[0]
         img = self.imgnet(image) # B x 512 x 14 x 14
-        img = self.linearConv(img) # B x 1024 x 14 x 14
+        img = self.linearConvImg(img) # B x 1024 x 14 x 14
         img = nn.functional.normalize(img, dim=1)
 
         # Audio
         aud = self.audnet(audio) # B x 512 x 17 x 58
-        aud = self.linearConv(aud) # B x 1024 x 17 x 58
+        aud = self.linearConvAud(aud) # B x 1024 x 17 x 58
         aud = torch.mean(aud, dim=2) # B x 1024 x 58
         aud = nn.functional.normalize(aud, dim=1)
 

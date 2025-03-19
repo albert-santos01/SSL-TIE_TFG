@@ -207,6 +207,13 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         
         optim.zero_grad()
         loss.backward()
+        # for name, param in model.named_parameters(): 
+        #     if param.grad is None:
+        #         print(f"Parameter {name} has no gradient.---------------------")
+        #     else: 
+        #         print(f"the following {name} has parameter")
+
+        # raise Exception("STOP BITCH")
         optim.step()
 
         batch_time.update(time.time() - end)

@@ -698,6 +698,19 @@ Unfortunately, the model is still not learning. We proceed to study other type o
 ### 19/03
 Aparently it learns even less with a bigger learning rate.
 Let's try with a smaller one:
-- Job `129726` lr ``1e-5``
+- Job `129726` lr ``1e-5`` It significant learned something but not considerable yet
+- Job `129822` lr `1e-6` It takes to much time for an epoch somehow
 
+- `grads`
+    I examined the grads after lossbackward in both models. It turns out that the only difference are the new added layers, which they indeed have also gradient. To understand this please go the jobs folder at the cluster.
+    Difference
+    L#135 the following module.linearConv.weight has parameter
+    L#136 the following module.linearConv.bias has parameter
+- `init param`
+    SSL-TIE does a weight Kaiming initialization which it has been proved by the job `19926` that works as expected. Meaning that it includes our new added layer
+- `2layers`
+    `129944` After finding out that in our model both encoders were sharing the same linearConvolution, which it makes no sense. Therefore I added a new layer so now they expand their channel dimension independently. 
+    I launched two jobs with this new architecture
+        1. `129943` with lr `1e-05`
+        2. `129944` with lr `1e-04`
 

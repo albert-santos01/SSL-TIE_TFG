@@ -684,11 +684,20 @@ def matchmapSim(M, simtype):
         return M_maxT.mean()
     else:
         raise ValueError('Unknown similarity type: %s' % simtype)
-````
+```
 
 El model no apren encara, els epochs ara trigan una hora.
 
+### 18/03
+The past few days I was developing the idea of the similarity matrix by means of outerproduct that were eased by torch.einsum. After proving a toy example the model has been is now implementing the InfoNCE loss.
 
+Unfortunately, the model is still not learning. We proceed to study other type of solutions:
+- `learning rate`
+    SSL-TIE has ``1e-4`` by default and DAVEnet has ``0.001``
 
+### 19/03
+Aparently it learns even less with a bigger learning rate.
+Let's try with a smaller one:
+- Job `129726` lr ``1e-5``
 
 

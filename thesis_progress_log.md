@@ -711,6 +711,75 @@ Let's try with a smaller one:
 - `2layers`
     `129944` After finding out that in our model both encoders were sharing the same linearConvolution, which it makes no sense. Therefore I added a new layer so now they expand their channel dimension independently. 
     I launched two jobs with this new architecture
-        1. `129943` with lr `1e-05`
-        2. `129944` with lr `1e-04`
+        1. `129943` with lr `1e-05` : Apparently it overfit less
+        2. `129944` with lr `1e-04`: Doesn't learn
+        3. `132291` with lr `5e-6`:  Just launched
+        4. -- with lr `1e-6`: it learned something but way less compared to those with 1e-5 NOTE: this computation was done with one linDimExp layer 
 
+### 21/03
+With lr 1e-5 we proved that the model can learn. Interestingly making the layers independent for each encoder doesn't have a dramatic effect, which the subtle difference can be seen at the val_loss
+
+Now we should see what the models have learned, thus, a code for visualizing the model output given its weights and the sample it's required.
+
+Meanwhile, I will be launching jobs to see the effect of batch size.
+- `batch_size`:
+    With lr 1e-5
+    1.  `132294` b128
+    2.  `132328` b256
+    3.  `132330` b64
+
+### REUNION 21/03/2025
+Repassar la passada reunió:
+- Demostrar que el codi de PlacesAudio va ser assimilat com que no afectava al problema
+- Aplicar el InfoNCE loss de Hamilton, el seu codi trigaré massa en entendre-ho.
+- Mostrar formula Hamilton
+- Vaig aplicar la meva lógica del fors anidats, (calcular la similaritat per cada combinació del B^2)
+    - Els epochs trigan una hora i segueix sense aprendre
+
+Avui:
+- Nova implementació InfoNCE loss [Ref](./utils/util.py#L433)
+    - Explicar la meva formulació? 
+        S [B x B x T x H x W] 
+        S_MI  max(h,w) [B x B x T] 
+        S_MISA mean(t) [B x B ]
+    - Explicar toy example?
+    - Conseqüencies:
+        - Segueix sense aprendre
+        - Reducció T-epoch a <20 mins
+
+- Verificar pq no baixa la loss del model:
+    - Gradients, tot correcte Explain diff SS-TIE default and me
+    - init parametres Kaiming
+    - independent layers
+    - lr ha tingut efecte pero overfitting significant
+    - Harwarth i jo
+    - mostrar grafs
+
+- Babysitting:
+    - probar de jugar amb la temp (0.07 em sembla bestia)
+    - Batch sizes
+    - Optimizers (no gaire important)
+    - Siamese (new approach)
+
+- Before this, develop new code for visualizing the model output given its weights and a sample wether it's in local or remote or in train set or val set
+
+
+### 22/03
+We noticed that the output of the spectogram depends on the amount of samples and its sample rate. Therefore, with less samples less windows and the output for places audio is (257,670) which is quite concerning because we get a aud embedding of (1024,42)... Is this something that we should consider??
+
+Possible Fix: If you want both spectrograms to have the same time resolution, you can normalize the hop length by the sample rate
+
+### 23/03
+Las imágenes del val set con su img_transform salen así
+[[[-2.117904  -2.0357141 -1.8044444]
+  [-2.117904  -2.0357141 -1.8044444]
+  [-2.117904  -2.0357141 -1.8044444]
+  ...
+  [-2.117904  -2.0357141 -1.8044444]
+  [-2.117904  -2.0357141 -1.8044444]
+  [-2.117904  -2.0357141 -1.8044444]]
+ahora les voy a aplicar un normalization para plotearlas
+
+Las imagenes quedan muy raras al ser ploteadas cuando se les aplica la transformación por default de validation, se deberia debugear el modelo para ver si ahí también pasa.
+
+Todas tienen en comun que se quedan estrujadas al centro dejando el resto en un color  como negro azulado

@@ -783,3 +783,21 @@ ahora les voy a aplicar un normalization para plotearlas
 Las imagenes quedan muy raras al ser ploteadas cuando se les aplica la transformación por default de validation, se deberia debugear el modelo para ver si ahí también pasa.
 
 Todas tienen en comun que se quedan estrujadas al centro dejando el resto en un color  como negro azulado
+
+Gracias a la función de vis_loader, hemos comprobado que las imágenes salen perfectas EN EL CLUSTER
+
+It has been proved that the issue was because the resize operation had an extra parenthesis ((imgSize, Image.BICUBIC))
+
+NOW given the configuration of SISA we are going to throw three jobs varying the learning rate:
+- `133720` lr1e-3-2ly-B128-SISA
+- `133719` lr1e-4-2ly-B128-SISA
+- `133728` lr1e-5-2ly-B128-SISA
+
+
+ROADMAP:
+ - 1. Create the video for a given model and sample [DONE]
+    - 1. 1. Maybe adding the audio is great
+Why the last jobs are not working??? [Solved] Train_one_epoch was commented
+ - 2. Try to use more than one GPU
+ - 3. Do more ablation study
+ - 4. Maybe 42 for the embedding time size is too little compared to harwath, that it's our main difference

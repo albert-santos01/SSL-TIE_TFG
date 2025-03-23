@@ -453,8 +453,37 @@ def sampled_margin_rank_loss(image_outputs, audio_outputs, margin=1., simtype='M
             loss = loss + I2A_simdif
     loss = loss / B
     return loss
+def volumemap_sim(volume_matrix, simtype='MISA'):
+    """
+    Computes the similarity scoring for all the combinations B x B
+        volume_matrix (B x B x T x H x W)
+        simtype MISA | SISA | SIMA
+        Returns (B x B) similarity matrix
+    """
+    assert(volume_matrix.dim() == 5)
 
-def similarity_matrix_bxb(img_outs, aud_outs,temp=0.07):
+    if simtype== 'MISA':
+        #MI
+       volume_matrix, _ =volume_matrix.max(-1) # x spatial
+       volume_matrix, _ =volume_matrix.max(-1) # y spatial
+        #MISA
+       volume_matrix =volume_matrix.mean(-1) # t temporal
+    elif simtype == 'SISA':
+        volume_matrix = volume_matrix.mean(-1)
+        volume_matrix = volume_matrix.mean(-1)
+        volume_matrix = volume_matrix.mean(-1)
+    elif simtype == 'SIMA':
+        volume_matrix,_ = volume_matrix.max(2) # MA
+        volume_matrix = volume_matrix.mean(-1)
+        volume_matrix = volume_matrix.mean(-1) #SIMA
+    else:
+        raise ValueError('Unknown similarity type: %s' % simtype)
+
+    assert(volume_matrix.dim() == 3)
+    return volume_matrix
+
+
+def similarity_matrix_bxb(img_outs, aud_outs,temp=0.07,simtype='MISA'):
     """
         img_outs (B x C x H x W) 
         aud_outs  (B x C x T)
@@ -465,12 +494,8 @@ def similarity_matrix_bxb(img_outs, aud_outs,temp=0.07):
     assert(aud_outs.dim() == 3)
     s_outs = torch.einsum('bct, pchw -> bpthw', aud_outs, img_outs)
 
-    #MI
-    s_outs, _ = s_outs.max(-1) # x spatial
-    s_outs, _ = s_outs.max(-1) # y spatial
-    #MISA
-    s_outs = s_outs.mean(-1) # t temporal
-
+    s_outs = volumemap_sim(s_outs,simtype)
+    
     s_outs = torch.exp(s_outs / temp)
 
     return s_outs
@@ -489,7 +514,7 @@ def infoNCE_loss(image_outputs, audio_outputs,args):
     B = image_outputs.size(0)
     mask = torch.eye(B, device=image_outputs.device)
 
-    sims =  similarity_matrix_bxb(image_outputs, audio_outputs,args.temperature)
+    sims =  similarity_matrix_bxb(image_outputs, audio_outputs,args.temperature,args.simtype)
     pos = sims * mask
     neg = sims * (1 - mask)
 

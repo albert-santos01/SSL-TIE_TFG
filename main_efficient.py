@@ -203,7 +203,7 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
 
         
 
-        #TODO: Check if loss is really able to backward
+        
         
         optim.zero_grad()
         loss.backward()
@@ -277,7 +277,7 @@ def validate(val_loader, model, criterion, device, epoch, args):
             spec = Variable(spec).to(device, non_blocking=True)
             image = Variable(image).to(device, non_blocking=True)
             B = image.size(0)
-            vis_loader(image, spec)
+            # vis_loader(image, spec,idx)
 
             imgs_out, auds_out = model(image.float(), spec.float(), args, mode='val')
             # loss_cl =  sampled_margin_rank_loss(imgs_out, auds_out, margin=1., simtype=args.simtype)

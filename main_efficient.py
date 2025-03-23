@@ -51,7 +51,7 @@ from utils.eval_ import Evaluator
 from sklearn.metrics import auc
 from tqdm import tqdm
 
-from utils.util import prepare_device, vis_heatmap_bbox, tensor2img, sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss
+from utils.util import vis_loader, prepare_device, vis_heatmap_bbox, tensor2img, sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss
 from utils.tf_equivariance_loss import TfEquivarianceLoss
 import multiprocessing
 
@@ -273,9 +273,11 @@ def validate(val_loader, model, criterion, device, epoch, args):
     with torch.no_grad():
         end = time.time()
         for idx, (image, spec, audio, name, im) in tqdm(enumerate(val_loader), total=len(val_loader)):
+
             spec = Variable(spec).to(device, non_blocking=True)
             image = Variable(image).to(device, non_blocking=True)
             B = image.size(0)
+            vis_loader(image, spec)
 
             imgs_out, auds_out = model(image.float(), spec.float(), args, mode='val')
             # loss_cl =  sampled_margin_rank_loss(imgs_out, auds_out, margin=1., simtype=args.simtype)

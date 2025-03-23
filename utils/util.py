@@ -49,6 +49,25 @@ def normalize_img(value, vmax=None, vmin=None):
         value = (value - vmin) / (vmax - vmin)  # vmin..vmax
 
     return value
+def vis_loader(image,spec):
+    img = image[0].cpu().numpy()
+    img = np.transpose(img, (1, 2, 0))
+    print("image",img.shape,img)
+    spec = spec[0].cpu().numpy()
+    print("spec", spec.shape,spec)
+
+    img = normalize_img(img)
+    spec = normalize_img(spec)
+
+    img_vis = img * 255
+    spec_vis = spec * 255
+
+    cv2.imshow('image', img_vis.astype(np.uint8))
+    cv2.imshow('spec', spec_vis.astype(np.uint8))
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    raise ValueError("Stop")
+
 
 def vis_matchmap(matchmap, img_array, video_name, epoch, save_dir, args, img_size=224):
     '''

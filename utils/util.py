@@ -479,7 +479,7 @@ def volumemap_sim(volume_matrix, simtype='MISA'):
     else:
         raise ValueError('Unknown similarity type: %s' % simtype)
 
-    assert(volume_matrix.dim() == 3)
+    assert(volume_matrix.dim() == 2)
     return volume_matrix
 
 

@@ -6,7 +6,7 @@
             "name": "Debug main.py training with CLI args",
             "type": "debugpy",
             "request": "launch",
-            "program": "main.py",
+            "program": "main_efficient.py",
             "console": "integratedTerminal",
             "args": [
                 "--batch_size", "2",
@@ -19,7 +19,7 @@
                 "--dataset_mode", "Debug",
                 "--rescale_factor", "0.5", "1.0",
                 "--max_rotation_angle", "30",
-                "--aud_aug", "SpecAug",
+                // "--aud_aug", "SpecAug",
                 "--trainset_path", "dir_for_debugging",
                 "--test_path", "dir_for_debugging",
                 "--epochs", "100",

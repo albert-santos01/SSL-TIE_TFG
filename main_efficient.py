@@ -92,11 +92,13 @@ def cal_auc(iou):
 def set_path(args):
     if args.resume: 
         exp_path = os.path.dirname(os.path.dirname(args.resume)) # It should be the parent directory of the model
+        links_path = ""
     elif args.test: 
         exp_path = os.path.dirname(os.path.dirname(args.test))
+        links_path = ""
     else:
         # exp_path = 'ckpts/{args.exp_name}'.format(args=args)
-                                #TODO: Change to $SCRATCH once is fixed
+                                
         # Check if we are using the cluster 
         if multiprocessing.cpu_count() > 8: 
             exp_path = os.path.expandvars('$SCRATCH/{args.exp_name}'.format(args=args))
@@ -113,8 +115,11 @@ def set_path(args):
         if not os.path.exists(links_path):
             os.makedirs(links_path)
         
+        #Reuse variable
+        links_path = os.path.join(links_path, 'links_{args.exp_name}_{args.job_id}.txt'.format(args=args))
+        
         # Create a txt file in the links path folder
-        with open(os.path.join(links_path, 'links_{args.job_id}.txt'.format(args=args)), 'w') as f:
+        with open(links_path, 'w') as f:
             f.write('This is a placeholder file for the links to the weights and videos: ')
         
 
@@ -125,7 +130,7 @@ def set_path(args):
         os.makedirs(img_path)
     if not os.path.exists(model_path): 
         os.makedirs(model_path)
-    return img_path, model_path, exp_path
+    return img_path, model_path, exp_path, links_path
 
 
 def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
@@ -146,7 +151,6 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     # basicblock = BasicBlock()
     model.train()
     
-    #TODO:   I think that we should get the device from the model
 
     
     end = time.time()
@@ -516,7 +520,7 @@ def main(args):
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
-    args.img_path, args.model_path, args.exp_path = set_path(args)
+    args.img_path, args.model_path, args.exp_path, args.links_path = set_path(args)
     
     model = AVENet(args)
     model.to(device)
@@ -695,6 +699,12 @@ def main(args):
             save_checkpoint(save_dict, is_best=0, gap=1, 
                 filename=os.path.join(args.model_path, 'epoch%d.pth.tar' % epoch), 
                 keep_all=True)
+
+        # Write the links file with the link of the weigth
+        with open(args.links_path, 'w') as f:
+            filename=os.path.join(args.model_path, 'epoch%d.pth.tar' % epoch)
+            f.write(f'Weights epoch {epoch}: file://{filename}')
+
 
         torch.cuda.empty_cache()
         scheduler.step()

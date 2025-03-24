@@ -37,6 +37,7 @@ def get_arguments():
     parser.set_defaults(mem_efficient=False)
     parser.add_argument('--free_mem_freq', default=10, type=int)
     parser.add_argument('--video', default=None, type=str, help='Root directory path of metadata PlacesAudio')
+    parser.add_argument('--job_id', default="None", type=str, help="Job id if it exists")
     #
     
     parser.add_argument('--trainset', default='VGGSS', type=str, help="Training dataset")

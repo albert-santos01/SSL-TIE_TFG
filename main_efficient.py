@@ -97,16 +97,29 @@ def set_path(args):
     else:
         # exp_path = 'ckpts/{args.exp_name}'.format(args=args)
                                 #TODO: Change to $SCRATCH once is fixed
-        exp_path = os.path.expandvars('$HOME/models/{args.exp_name}'.format(args=args))
-        
+        # Check if we are using the cluster 
+        if multiprocessing.cpu_count() > 8: 
+            exp_path = os.path.expandvars('$SCRATCH/{args.exp_name}'.format(args=args))
+        else:
+            exp_path = 'garbage/{args.exp_name}'.format(args=args)
+
         if not os.path.exists(exp_path):
             os.makedirs(exp_path)
         else:
-            # raise ValueError('The experiment folder already exists')
             print('The experiment folder already exists')
+        
+        links_path = os.path.expandvars('$HOME/models/{args.exp_name}'.format(args=args))
+        
+        if not os.path.exists(links_path):
+            os.makedirs(links_path)
+        
+        # Create a txt file in the links path folder
+        with open(os.path.join(links_path, 'links_{args.job_id}.txt'.format(args=args)), 'w') as f:
+            f.write('This is a placeholder file for the links to the weights and videos: ')
+        
 
-    img_path = os.path.join(exp_path, 'img') #It will be $HOME/models/{args.exp_name}/img
-    model_path = os.path.join(exp_path, 'model') #It will be $HOME/models/{args.exp_name}/model and here all the models will be saved
+    img_path = os.path.join(exp_path, 'img') 
+    model_path = os.path.join(exp_path, 'model') 
 
     if not os.path.exists(img_path): 
         os.makedirs(img_path)

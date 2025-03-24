@@ -132,6 +132,8 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     
     # basicblock = BasicBlock()
     model.train()
+    
+    #TODO:   I think that we should get the device from the model
 
     
     end = time.time()
@@ -490,7 +492,7 @@ def main(args):
     
     if torch.cuda.is_available():
         # device = torch.device('cuda:1') if len(args.gpus) > 1 else torch.device('cuda:0')
-        device = torch.device('cuda') # We are using only one GPU
+        device = torch.device('cuda:0') if len(args.gpus) > 1 else torch.device('cuda')
     else:
         device = torch.device('cpu')
         print('Using CPU')

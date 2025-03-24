@@ -51,7 +51,7 @@ from utils.eval_ import Evaluator
 from sklearn.metrics import auc
 from tqdm import tqdm
 
-from utils.util import vis_loader, prepare_device, vis_heatmap_bbox, tensor2img, sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss
+from utils.util import MatchmapVideoGenerator, vis_loader, prepare_device, vis_heatmap_bbox, tensor2img, sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss
 from utils.tf_equivariance_loss import TfEquivarianceLoss
 import multiprocessing
 
@@ -120,7 +120,8 @@ def set_path(args):
         
         # Create a txt file in the links path folder
         with open(links_path, 'w') as f:
-            f.write('This is a placeholder file for the links to the weights and videos: ')
+            today = time.strftime("%Y-%m-%d %H:%M")
+            f.write(f'GENERATED {today}: \nThis is a placeholder file for the links to the weights and videos: ')
         
 
     img_path = os.path.join(exp_path, 'img') 
@@ -286,9 +287,8 @@ def validate(val_loader, model, criterion, device, epoch, args):
     save_dir = os.path.join(args.img_path, "val_imgs", str(epoch)) 
 
     model.eval()
-    random_idx = random.randint(0, len(val_loader) - 1)
-    random_sample = random.randint(0, args.batch_size - 1)
-
+    
+    video_gen = False
     with torch.no_grad():
         end = time.time()
         for idx, (image, spec, audio, name, im) in tqdm(enumerate(val_loader), total=len(val_loader)):
@@ -299,7 +299,6 @@ def validate(val_loader, model, criterion, device, epoch, args):
             # vis_loader(image, spec,idx)
 
             imgs_out, auds_out = model(image.float(), spec.float(), args, mode='val')
-            # loss_cl =  sampled_margin_rank_loss(imgs_out, auds_out, margin=1., simtype=args.simtype)
                             
             loss_cl = infoNCE_loss(imgs_out,auds_out, args)
 
@@ -310,16 +309,32 @@ def validate(val_loader, model, criterion, device, epoch, args):
             
 
             if args.video:
-                if idx==random_idx:
-                    img_emb = imgs_out[random_sample]
-                    aud_emb = auds_out[random_sample]
-                    matchmap = computeMatchmap(img_emb,aud_emb)
+                if not video_gen:
+                    if B*idx <= args.val_video_idx < idx*B + B:
+                        idx_B   =  args.val_video_idx % B 
+                        img_emb = imgs_out[idx_B]
+                        aud_emb = auds_out[idx_B]
 
-                    matchmap_array = matchmap.data.cpu().numpy()
+                        matchmap = computeMatchmap(img_emb,aud_emb)
+                        frame   = image[idx_B]
 
-                    img_org = im[random_sample]
-                    vis_matchmap(matchmap_array,img_org,video_name=f'epoch_{epoch}',epoch=epoch,save_dir=args.img_path,args=args)
-        
+                        mgv = MatchmapVideoGenerator(model,device,frame,spec[idx_B],args,matchmap)
+
+                        video_dir = os.path.join(args.img_path,"val_videos")
+                        if not os.path.exists(video_dir):
+                            os.makedirs(video_dir)
+                        video_dir = os.path.join(video_dir, f"{args.exp_name}_epoch_{epoch}.mp4")
+
+                        mgv.create_video(video_dir)
+                        video_gen = True
+
+                        with open(args.links_path, 'a') as f:
+                            f.write(f'Video epoch {epoch}: file:/{video_dir}\n')
+                        if args.use_wandb:
+                            wandb.log({"val_video": wandb.Video(video_dir, caption=f"Epoch {epoch}")})
+
+
+
     """    
         recalls = calc_recalls(image_output, audio_output, nframes, simtype=args.simtype)
         A_r10 = recalls['A_r10']
@@ -701,9 +716,9 @@ def main(args):
                 keep_all=True)
 
         # Write the links file with the link of the weigth
-        with open(args.links_path, 'w') as f:
+        with open(args.links_path, 'a') as f:
             filename=os.path.join(args.model_path, 'epoch%d.pth.tar' % epoch)
-            f.write(f'Weights epoch {epoch}: file://{filename}')
+            f.write(f'Weights epoch {epoch}: file:/{filename}\n')
 
 
         torch.cuda.empty_cache()

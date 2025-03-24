@@ -1,7 +1,17 @@
 import cv2
 import numpy as np
+import json
+
 import torch
 import torch.nn.functional as F
+from torchvision import transforms
+import torchaudio
+import torchaudio.transforms as audio_T
+from torch.autograd import Variable
+
+from models.model import AVENet
+import subprocess
+
 import os
 import wandb
 from PIL import Image
@@ -397,18 +407,14 @@ def calc_recalls(image_outputs, audio_outputs, nframes, simtype='MISA'):
 def computeMatchmap(I, A):
     """
     Computes the 3rd order tensor of matchmap between image and audio.
-    Its the dot product.
+        I (C x H x W) 
+        A  (C x T)
+        Assumption: the channel dimension is already normalized
     """
     assert(I.dim() == 3)
     assert(A.dim() == 2)
-    # D = I.size(0)
-    # H = I.size(1)
-    # W = I.size(2)
-    # T = A.size(1)                                                                                                                     
-    # Ir = I.view(D, -1).t()
-    # matchmap = torch.mm(Ir, A)
-    # matchmap = matchmap.view(H, W, T)  
-    matchmap = torch.einsum('hwc,tc->hwt', I, A)
+
+    matchmap = torch.einsum('ct, chw -> thw', A, I)
     return matchmap
 
 def matchmapSim(M, simtype):
@@ -526,6 +532,207 @@ def infoNCE_loss(image_outputs, audio_outputs,args):
 
     return loss
 
+class GetSampleFromJson:
+    def __init__(self, json_file, local_dir):
+        self.json_file = json_file
+        self.local_dir = local_dir
+        with open(json_file, 'r') as f:
+            data_json = json.load(f)
+        self.data = data_json['data']
+        self.image_base_path = data_json['image_base_path']
+        self.audio_base_path = data_json['audio_base_path']
+        self._init_transforms()
+        self.AmplitudeToDB = audio_T.AmplitudeToDB()
+    
+    def _init_transforms(self):
+        mean = [0.485, 0.456, 0.406]
+        std = [0.229, 0.224, 0.225]
+        self.img_transform = transforms.Compose([
+            transforms.Resize(224,Image.BICUBIC),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=mean, std=std)
+        ])
+
+    def get_sample(self, index):
+        sample = self.data[index]
+        image = os.path.join(self.image_base_path, sample['image'])
+        audio = os.path.join(self.audio_base_path, sample['wav'])
+        return image, audio
+    
+    def check_sample_in_local(self, index):
+        img, aud = self.get_sample(index)
+        img_local = os.path.join(self.local_dir + "/frame", img.split('/')[-1])
+        aud_local = os.path.join(self.local_dir + "/audio", aud.split('/')[-1])
+        return os.path.exists(img_local), os.path.exists(aud_local)
+    
+    def download_sample(self, index):
+
+        img_rem_path, aud_rem_path = self.get_sample(index)
+        if all(self.check_sample_in_local(index)):
+            print("Sample already downloaded")
+        else:
+            print(f"Sample NOT in {self.local_dir} \n-> download  ")
+            command = ["scp", "-P", "2122", "asantos@pirineus3.csuc.cat:" + img_rem_path, self.local_dir+"/frame"]
+            print(command)
+            subprocess.run(command)
+            command = ["scp", "-P", "2122", "asantos@pirineus3.csuc.cat:" + aud_rem_path, self.local_dir+"/audio"]
+            print(command)
+            subprocess.run(command)
+            
+        img_local_path = os.path.join(self.local_dir+"/frame", img_rem_path.split('/')[-1])
+        aud_local_path = os.path.join(self.local_dir+"/audio", aud_rem_path.split('/')[-1])
+
+        return img_local_path, aud_local_path
+   
+    def load_image(self, image_path):
+        img = Image.open(image_path).convert('RGB')
+        img = self.img_transform(img)
+        return img
+    
+    def show_image(self, img_path):
+        img = cv2.imread(img_path)
+        cv2.imshow("image", img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    def load_audio_to_spec(self, audio_path):
+        samples, samplerate = torchaudio.load(audio_path)
+
+        if samples.shape[1] < samplerate * 10:
+            n = int(samplerate * 10 / samples.shape[1]) + 1
+            samples = samples.repeat(1, n)
+
+        samples = samples[...,:samplerate*10]
+
+        spectrogram  =  audio_T.MelSpectrogram(
+                sample_rate=samplerate,
+                n_fft=512,
+                hop_length=239, 
+                n_mels=257,
+                normalized=True
+            )(samples)
+        spectrogram =  self.AmplitudeToDB(spectrogram)
+        return spectrogram
+    
+
+class MatchmapVideoGenerator:
+    def __init__(self,model, device, img, spec, args, matchmap = None):
+        self.model = model
+        self.device = device
+        self.spec = Variable(spec.unsqueeze(0)).to(device, non_blocking=True) if spec.dim() == 3 else Variable(spec).to(device, non_blocking=True)
+        self.image = Variable(img.unsqueeze(0)).to(device, non_blocking=True) if img.dim() == 3 else Variable(img).to(device, non_blocking=True)
+        self.args = args
+        self.matchmap = matchmap
+        self.video = None
+
+    def compute_matchmap(self):
+        self.model.eval()
+        with torch.no_grad():
+            img_emb,aud_emb = self.model(self.image.float(), self.spec.float(), self.args)
+            img_emb = img_emb.squeeze(0)
+            aud_emb = aud_emb.squeeze(0)
+            self.matchmap = torch.einsum('ct, chw -> thw',aud_emb,img_emb)
+        return self.matchmap
+    
+    def normalize_img(self, value, vmax=None, vmin=None):
+        '''
+        Normalize heatmap
+        '''
+        vmin = value.min() if vmin is None else vmin
+        vmax = value.max() if vmax is None else vmax
+        if not (vmax - vmin) == 0:
+            value = (value - vmin) / (vmax - vmin)  # vmin..vmax
+        return value
+    
+    def get_frame_match(self, img_np, matchmap_np, frame_idx):
+        assert img_np.ndim == 3, "img_np should be a 3D numpy array"
+        assert matchmap_np.ndim == 3, "matchmap_np should be a 3D numpy array"
+
+        matchmap_i = matchmap_np[frame_idx]
+        matchmap_i = cv2.resize(matchmap_i, dsize=(224, 224), interpolation=cv2.INTER_LINEAR)
+        matchmap_i = self.normalize_img(matchmap_i)
+        matchmap_i_photo = (matchmap_i * 255).astype(np.uint8)
+        matchmap_i_photo = cv2.applyColorMap(matchmap_i_photo, cv2.COLORMAP_JET)
+        matchmap_i_photo = cv2.addWeighted(matchmap_i_photo, 0.5, img_np, 0.5, 0)
+        return matchmap_i_photo
+    
+    def create_video_f(self,img_np, matchmap_np, output_path="matchmap_video.mp4", fps=1):
+        n_frames = matchmap_np.shape[0]
+        
+        # Make sure img_np is in uint8 format
+        if img_np.dtype != np.uint8:
+            img_np = (img_np * 255).astype(np.uint8)
+        
+        # Make sure img_np has correct dimensions (224, 224, 3)
+        if img_np.shape[:2] != (224, 224):
+            img_np = cv2.resize(img_np, (224, 224))
+        
+        # Use proper codec for compatibility
+        # For better compatibility, try 'avc1' or 'H264' instead of 'mp4v'
+        fourcc = cv2.VideoWriter_fourcc(*'avc1')  # Try this first
+        
+        # Alternative codec options if 'avc1' doesn't work:
+        # fourcc = cv2.VideoWriter_fourcc(*'H264')
+        # fourcc = cv2.VideoWriter_fourcc(*'XVID')  # More compatible but lower quality
+        
+        out = cv2.VideoWriter(output_path, fourcc, fps, (224, 224))
+        
+        if not out.isOpened():
+            print("Failed to create VideoWriter. Trying alternative codec...")
+            # Try with different codec
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            out = cv2.VideoWriter(output_path.replace('.mp4', '.avi'), fourcc, fps, (224, 224))
+        
+        for i in range(n_frames):
+            frame = self.get_frame_match(img_np, matchmap_np, i)
+            
+            # Ensure frame is the correct format
+            if frame.dtype != np.uint8:
+                frame = (frame * 255).astype(np.uint8)
+                
+            # Ensure frame has the right shape
+            if frame.shape[:2] != (224, 224):
+                frame = cv2.resize(frame, (224, 224))
+                
+            # Verify frame is BGR (OpenCV's default format)
+            if len(frame.shape) == 3 and frame.shape[2] == 3:
+                out.write(frame)
+            else:
+                print(f"Warning: Frame {i} has incorrect format. Shape: {frame.shape}")
+        
+        out.release()
+        print(f"Video created at: {output_path}")
+        
+        # Verify the file was created and has a non-zero size
+        import os
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            print(f"Success! Video file created: {os.path.getsize(output_path)} bytes")
+        else:
+            print("Error: Video file was not created properly")
+            
+    def create_video(self,output_path):
+        img_np = self.image[0].cpu().numpy()
+        img_np = np.transpose(img_np, (1, 2, 0))
+        img_np = self.normalize_img(img_np)
+        img_np = (img_np * 255).astype(np.uint8)
+        img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+
+        if self.matchmap is None:
+            self.matchmap = self.compute_matchmap()
+
+        matchmap_np = self.matchmap.cpu().numpy()
+        n_frames = matchmap_np.shape[0]
+        self.create_video_f(img_np, matchmap_np, output_path, fps=n_frames/10) # 10 sec duration
+    
+
+def load_model(ckpt_path, args):
+    model = AVENet(args)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    checkpoint = torch.load(ckpt_path, map_location=device)
+    model.load_state_dict(checkpoint['state_dict'])
+    model.to(device)
+    return model, device
 
 
 

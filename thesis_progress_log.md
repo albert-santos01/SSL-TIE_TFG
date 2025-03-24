@@ -789,9 +789,9 @@ Gracias a la función de vis_loader, hemos comprobado que las imágenes salen pe
 It has been proved that the issue was because the resize operation had an extra parenthesis ((imgSize, Image.BICUBIC))
 
 NOW given the configuration of SISA we are going to throw three jobs varying the learning rate:
-- `133720` lr1e-3-2ly-B128-SISA
-- `133719` lr1e-4-2ly-B128-SISA
-- `133728` lr1e-5-2ly-B128-SISA
+- `133720` lr1e-3-2ly-B128-SISA -> Not able to learn
+- `133719` lr1e-4-2ly-B128-SISA -> Not able to learn
+- `133728` lr1e-5-2ly-B128-SISA -> It decreases faster than the ones with misa but then it goes slower, meaning that a mix could be beneficial
 
 
 ROADMAP:
@@ -801,3 +801,35 @@ Why the last jobs are not working??? [Solved] Train_one_epoch was commented
  - 2. Try to use more than one GPU
  - 3. Do more ablation study
  - 4. Maybe 42 for the embedding time size is too little compared to harwath, that it's our main difference
+
+ ### 24/03
+TODO to today:
+1. WandB last jobs analyze [Done]
+2. More than one GPU [Done]
+--- Ask support for the scratch variable [Done]
+3. Integrate Video to WandB
+4. Add audio option
+    -  Analyze how much time it introduces the adding the audio
+    -  Maybe putting a flag on frequency
+5. Ablation study:
+    - Determine roadmap
+
+`MultiGPU notes`
+nn.DataParallel splits the input across the different devices by chunking in the batch dimension.
+Later in the backward pass, the gradients are summed into the original module
+[Important warning](https://pytorch.org/docs/stable/generated/torch.nn.DataParallel.html)
+Warning
+
+In each forward, module is replicated on each device, so any updates to the running module in forward will be lost. For example, if module has a counter attribute that is incremented in each forward, it will always stay at the initial value because the update is done on the replicas which are destroyed after forward. However, DataParallel guarantees that the replica on device[0] will have its parameters and buffers sharing storage with the base parallelized module. So in-place updates to the parameters or buffers on device[0] will be recorded. E.g., BatchNorm2d and spectral_norm() rely on this behavior to update the buffers.
+
+
+`$SCRATCH`
+It can only be accessed within a slurm job and it carries the job id like
+SCRATCH: /scratch/upftfg03/asantos/134435
+
+ROADMAP to develop efficient use of `SCRATCH`
+1. Checker if we are using the cluster If yes set_path correctly if not store it in garbarge
+2. If folder model exists add a new txt if not create folder
+3. The folder will have a new txt with name of the model and the job_id as the name of the file
+4. Write each time in the folder of the file the link of the epoch weights and the video
+Time: 2hours

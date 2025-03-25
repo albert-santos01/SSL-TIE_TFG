@@ -615,9 +615,10 @@ class GetSampleFromJson:
         spectrogram =  self.AmplitudeToDB(spectrogram)
         return spectrogram
     
+   
 
 class MatchmapVideoGenerator:
-    def __init__(self,model, device, img, spec, args, matchmap = None):
+    def __init__(self,model, device, img, spec,args, matchmap = None):
         self.model = model
         self.device = device
         self.spec = Variable(spec.unsqueeze(0)).to(device, non_blocking=True) if spec.dim() == 3 else Variable(spec).to(device, non_blocking=True)
@@ -670,7 +671,7 @@ class MatchmapVideoGenerator:
         
         # Use proper codec for compatibility
         # For better compatibility, try 'avc1' or 'H264' instead of 'mp4v'
-        fourcc = cv2.VideoWriter_fourcc(*'avc1')  # Try this first
+        fourcc = cv2.VideoWriter_fourcc(*'avc1') 
         
         # Alternative codec options if 'avc1' doesn't work:
         # fourcc = cv2.VideoWriter_fourcc(*'H264')
@@ -705,12 +706,12 @@ class MatchmapVideoGenerator:
         print(f"Video created at: {output_path}")
         
         # Verify the file was created and has a non-zero size
-        import os
         if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
             print(f"Success! Video file created: {os.path.getsize(output_path)} bytes")
         else:
             print("Error: Video file was not created properly")
             
+
     def create_video(self,output_path):
         img_np = self.image[0].cpu().numpy()
         img_np = np.transpose(img_np, (1, 2, 0))
@@ -724,7 +725,47 @@ class MatchmapVideoGenerator:
         matchmap_np = self.matchmap.cpu().numpy()
         n_frames = matchmap_np.shape[0]
         self.create_video_f(img_np, matchmap_np, output_path, fps=n_frames/10) # 10 sec duration
-    
+
+
+    def add_audio_to_video(self, video_path, audio_path):
+        """
+        Add audio to video using ffmpeg and overwrite the output file if it exists.
+        """
+        temp_output = "temp_output.mp4"
+        
+        # Ensure the audio file exists
+        if not os.path.exists(audio_path):
+            raise Exception("Error: Audio file not found.")
+
+        # Use ffmpeg to merge audio and video
+        command = [
+            "ffmpeg",
+            "-y",  # Overwrite output files without asking
+            "-i", video_path,  # Input video
+            "-stream_loop", "-1",  # Infinite loop for audio
+            "-i", audio_path,  # Input audio
+            "-map", "0:v",  # Video stream from first input
+            "-map", "1:a",  # Audio stream from second input
+            "-c:v", "copy",  # Copy video codec (no re-encoding)
+            "-c:a", "libmp3lame",  # Encode audio in mp3 format
+            "-t", "10",  # 10 sec duration
+            temp_output
+        ]
+        
+        try:
+            subprocess.run(command, check=True)
+            # Delete the original video file
+            os.remove(video_path)
+            # Rename the temporary output file to the original video file
+            os.rename(temp_output, video_path)
+        except subprocess.CalledProcessError:
+            print("Error adding audio to video.")
+
+
+    def create_video_with_audio(self, output_path, audio_path):
+        self.create_video(output_path)
+        self.add_audio_to_video(output_path, audio_path)
+
 
 def load_model(ckpt_path, args):
     model = AVENet(args)
@@ -733,6 +774,36 @@ def load_model(ckpt_path, args):
     model.load_state_dict(checkpoint['state_dict'])
     model.to(device)
     return model, device
+
+def update_json_file(path_2_json, epochs_dict, epoch, key, link_2_store):
+    """
+    Updates the JSON file with a new video link for the given epoch.
+
+    Args:
+        path_2_json (str): Path to the JSON file to update.
+        epochs_dict (dict): The dictionary containing epoch data.
+        epoch (int): The epoch number to update.
+        key (str): The key for the dict ["weights_link" | "video_link"]
+        link_2_store (str): The video link to add.
+    Returns 
+        epochs_dict (dict): the updated dict
+    """
+    try:
+        # Ensure the epoch exists in the dictionary
+        if str(epoch) not in epochs_dict:
+            epochs_dict[str(epoch)] = {}
+
+        # Update the link for the epoch
+        epochs_dict[str(epoch)][key] = link_2_store
+
+        # Write the updated dictionary back to the JSON file
+        with open(path_2_json, "w", encoding="utf-8") as json_file:
+            json.dump(epochs_dict, json_file, indent=4)
+
+        return epochs_dict
+    
+    except (IOError, json.JSONDecodeError) as e:
+        print(f"Error updating JSON file: {e}")
 
 
 

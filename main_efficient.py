@@ -51,7 +51,7 @@ from utils.eval_ import Evaluator
 from sklearn.metrics import auc
 from tqdm import tqdm
 
-from utils.util import MatchmapVideoGenerator, vis_loader, prepare_device, vis_heatmap_bbox, tensor2img, sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss
+from utils.util import update_json_file, MatchmapVideoGenerator, vis_loader, prepare_device, vis_heatmap_bbox, tensor2img, sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss
 from utils.tf_equivariance_loss import TfEquivarianceLoss
 import multiprocessing
 
@@ -100,7 +100,7 @@ def set_path(args):
         # exp_path = 'ckpts/{args.exp_name}'.format(args=args)
                                 
         # Check if we are using the cluster 
-        if multiprocessing.cpu_count() > 8: 
+        if multiprocessing.cpu_count() > 16: 
             exp_path = os.path.expandvars('$SCRATCH/{args.exp_name}'.format(args=args))
         else:
             exp_path = 'garbage/{args.exp_name}'.format(args=args)
@@ -116,12 +116,25 @@ def set_path(args):
             os.makedirs(links_path)
         
         #Reuse variable
-        links_path = os.path.join(links_path, 'links_{args.exp_name}_{args.job_id}.txt'.format(args=args))
+        links_path = os.path.join(links_path, 'links_{args.exp_name}_{args.job_id}.json'.format(args=args))
         
-        # Create a txt file in the links path folder
-        with open(links_path, 'w') as f:
-            today = time.strftime("%Y-%m-%d %H:%M")
-            f.write(f'GENERATED {today}: \nThis is a placeholder file for the links to the weights and videos: ')
+        # Load existing data if JSON file exists, else start with an empty dictionary
+        if os.path.exists(links_path):
+            with open(links_path, "r") as json_file:
+                args.epochs_data = json.load(json_file)
+        else:
+            
+            # Create dictionary with epoch entries
+            epochs_data = {
+                epoch: {
+                    "weights_link": f"None",
+                    "video_link": f"None"
+                }
+                for epoch in range(101)
+            }
+            args.epochs_data = epochs_data
+
+
         
 
     img_path = os.path.join(exp_path, 'img') 
@@ -321,15 +334,16 @@ def validate(val_loader, model, criterion, device, epoch, args):
                         mgv = MatchmapVideoGenerator(model,device,frame,spec[idx_B],args,matchmap)
 
                         video_dir = os.path.join(args.img_path,"val_videos")
-                        if not os.path.exists(video_dir):
+                        if not os.path.exists(video_dir):       
                             os.makedirs(video_dir)
-                        video_dir = os.path.join(video_dir, f"{args.exp_name}_epoch_{epoch}.mp4")
+                        video_dir = os.path.join(video_dir, f"epoch_{epoch}.mp4")
 
-                        mgv.create_video(video_dir)
+                        mgv.create_video(video_dir) #TODO: Create Video path with audio 
                         video_gen = True
 
-                        with open(args.links_path, 'a') as f:
-                            f.write(f'Video epoch {epoch}: file:/{video_dir}\n')
+                        #Save link to the json file
+                        args.epochs_data = update_json_file(args.links_path, args.epochs_data, epoch, "video_link", video_dir)
+
                         if args.use_wandb:
                             wandb.log({"val_video": wandb.Video(video_dir, caption=f"Epoch {epoch}")})
 
@@ -715,11 +729,10 @@ def main(args):
                 filename=os.path.join(args.model_path, 'epoch%d.pth.tar' % epoch), 
                 keep_all=True)
 
-        # Write the links file with the link of the weigth
-        with open(args.links_path, 'a') as f:
-            filename=os.path.join(args.model_path, 'epoch%d.pth.tar' % epoch)
-            f.write(f'Weights epoch {epoch}: file:/{filename}\n')
-
+       
+        # Update the json with the new weights
+        filename=os.path.join(args.model_path, 'epoch%d.pth.tar' % epoch)
+        args.epochs_data = update_json_file(args.links_path, args.epochs_data, epoch, "weights_link", filename)
 
         torch.cuda.empty_cache()
         scheduler.step()

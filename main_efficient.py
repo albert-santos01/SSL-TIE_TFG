@@ -54,6 +54,7 @@ from tqdm import tqdm
 from utils.util import update_json_file, MatchmapVideoGenerator, vis_loader, prepare_device, vis_heatmap_bbox, tensor2img, sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss
 from utils.tf_equivariance_loss import TfEquivarianceLoss
 import multiprocessing
+from datetime import datetime
 
 
 from utils.utils import save_checkpoint, AverageMeter,  \
@@ -125,12 +126,16 @@ def set_path(args):
         else:
             
             # Create dictionary with epoch entries
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M")
             epochs_data = {
-                epoch: {
-                    "weights_link": f"None",
-                    "video_link": f"None"
+                "parameters": {
+                    "time_creation": current_time,
+                    "learning_rate": args.learning_rate,
+                    "batch_size": args.batch_size,
+                    "simtype":  args.simtype,
+                    "temperature": args.temperature,
+                    "val_video_idx": args.val_video_idx
                 }
-                for epoch in range(101)
             }
             args.epochs_data = epochs_data
 
@@ -345,7 +350,7 @@ def validate(val_loader, model, criterion, device, epoch, args):
                         args.epochs_data = update_json_file(args.links_path, args.epochs_data, epoch, "video_link", video_dir)
 
                         if args.use_wandb:
-                            wandb.log({"val_video": wandb.Video(video_dir, caption=f"Epoch {epoch}")})
+                            wandb.log({"val_video": wandb.Video(video_dir, caption=f"Epoch {epoch}"), "epoch": epoch})
 
 
 

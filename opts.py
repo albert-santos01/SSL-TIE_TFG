@@ -39,6 +39,7 @@ def get_arguments():
     
     parser.add_argument('--job_id', default="None", type=str, help="Job id if it exists")
     parser.add_argument('--links_path', default=None, type=str, help="Path of the placeholder file with all the links with weights and videos")
+    parser.add_argument('--epochs_data', default={},type=dict,help="This is for the json that will store the links of the weights and videos")
     
     parser.add_argument('--video', default=None, type=str, help='Root directory path of metadata PlacesAudio')
     parser.add_argument('--val_video_idx', default=0, type=int, help="Index of the sample to integrate the dataset")

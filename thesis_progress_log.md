@@ -807,7 +807,8 @@ TODO to today:
 1. WandB last jobs analyze [Done]
 2. More than one GPU [Done]
 --- Ask support for the scratch variable [Done]
-3. Integrate Video to WandB
+--- Do a good manage of scratch directory [Done]
+3. Integrate Video to WandB [Done]
 4. Add audio option
     -  Analyze how much time it introduces the adding the audio
     -  Maybe putting a flag on frequency
@@ -833,3 +834,59 @@ ROADMAP to develop efficient use of `SCRATCH`
 3. The folder will have a new txt with name of the model and the job_id as the name of the file
 4. Write each time in the folder of the file the link of the epoch weights and the video
 Time: 2hours
+Done everything but integrating the video
+
+Video integrated but not tested
+
+### 25/03
+Now the video is currently integrated to WandB and now it's possible to see how the inference changes through time.
+
+However, the only one that was running had this new set of 2GPUS and I decided to put a batch size of 512. Interestingly, it crashed at the 12th epoch and it didn't show a difference in computation time, it lasted the same as with one GPU.
+
+Therefore, two new jobs are launched to asses the difference between these configurations of GPUs.
+- `135689` -> lr1e-5-2ly-B128-SISA-2GPUS-woV
+- `135699` -> lr1e-5-2ly-B128-SISA-1GPUS-wV
+By comparing also the one with 1GPU and w/o the video making we will be able to compare the effect of using 2GPUs and making the video
+
+ROADMAP today:
+4. Add the audio to the video [Done]
+5. Do a code to download the desired weights given the epoch and using the file of the weights and the video
+--Modify text to json to handle better the SCRATCH directory [Done]
+
+6. Do the metrics of Hamilton and Harwarth, topkaccuracy
+7. Ablation study:
+- Effect of temperature
+- What if having more temporal size 
+- Mix SISA to MISA, at desired steps or at desired epoch
+
+5. `ModelOutputRetriever`
+- In init check if the dir exists for this model in the cluster
+- Say how many txt files are in the folder
+- if more than one ask the user which one if not use that one
+- Download the txt file to garbage
+- ask the user which epoch
+- Download model
+
+Due to inefficiency of using txt files for storing the links we are going to use json
+now we store in the variable args.epoch_data the dictionary and every epoch we are introducing new links
+i think we don't need to input anything in opts
+
+Now this thing of the json handler is ready to be tested
+
+Regarding the experiment of setups GPUs:
+- 2GPUs is taking way more time than usually with one.
+- We should test again only one GPU, just in case the new code despite using video or not it introduces redundancy in computational time.
+Thus we cancel jobs `135689` and `135699`
+
+Json thing really works, wandb video as well. However we should introduce the audio to the the video.
+We should think how to add the audio local path in the validation function
+
+### 26/03
+`135932`- _lr1e-5-2ly-B128-SISA-1GPUS-wV_ -  yesterday we launched this job to see the time duration of one GPU and with the uploading of the video. It seems that the T-epoch is 1300 secs 21 mins aprox. What is weird is that 2GPUs added even more computational time wtf.
+Lets launch it again
+`136682` - _lr1e-5-2ly-B128-SISA-1GPUS-woV_
+`136683` - _lr1e-5-2ly-B128-SISA-2GPUS-wV_
+
+
+Maybe the way that it's structured doesn't help at all. Meaning the following:
+- Given that the model parallelizes only the forwarding of the embeddings and not the creation and the reduction of the similarity matrix [This is what SSL-TIE Originally do]

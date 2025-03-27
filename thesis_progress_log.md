@@ -850,7 +850,7 @@ By comparing also the one with 1GPU and w/o the video making we will be able to 
 
 ROADMAP today:
 4. Add the audio to the video [Done]
-5. Do a code to download the desired weights given the epoch and using the file of the weights and the video
+5. Do a code to download the desired weights given the epoch and using the file of the weights and the video [Done]
 --Modify text to json to handle better the SCRATCH directory [Done]
 
 6. Do the metrics of Hamilton and Harwarth, topkaccuracy
@@ -904,3 +904,21 @@ InferenceMaker
 1. Check if the model is in local if not request to download, always download the lastes epoch if not requested
 2. Check if audio, img are in local
 3. create video
+This was finished and works perfectly however it is hardcoded meaning that you need the train or val json files.
+
+### 27/03
+Now we are almost close to start doing an ablation study. We still need to add the audio for wandb and add the metrics of harwarth adn hamilton
+
+Regarding the new study of T-epoch:
+- `136682` - _lr1e-5-2ly-B128-SISA-1GPUS-woV_ lasts 1100 seconds as usual
+The next launched job is waiting due to (AssocGrpBillingMinutes) just asked to support
+
+ROADMAP of TODAY:
+1. Do the metrics of topkaccuracy, harwarth and hamilton
+2. Add audio to the video of wandb
+3. If able to throw more jobs then start an smart ablation
+4. Prepare the reunion of tomorrow of the insights retrieved
+6. Do code for using LVS
+7. Do code for Siamese branch
+5. Do the code of processing old weights storage
+8. Maybe Download ADE20k

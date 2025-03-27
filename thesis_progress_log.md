@@ -890,3 +890,17 @@ Lets launch it again
 
 Maybe the way that it's structured doesn't help at all. Meaning the following:
 - Given that the model parallelizes only the forwarding of the embeddings and not the creation and the reduction of the similarity matrix [This is what SSL-TIE Originally do]
+
+ModelOutputRetriever is finished:
+This class can download the weights for desired epoch of the new type saving model (json link) it can also download the videos made at training
+If we decide to download weights from the old type wether its the one that stores everything at models in $HOME or in txt file to scratch
+
+Now what we need is a class that can do everything
+
+That will use the model and output the video for a desired idx
+
+InferenceMaker
+1. check if the video desired already exists
+1. Check if the model is in local if not request to download, always download the lastes epoch if not requested
+2. Check if audio, img are in local
+3. create video

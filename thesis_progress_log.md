@@ -914,11 +914,68 @@ Regarding the new study of T-epoch:
 The next launched job is waiting due to (AssocGrpBillingMinutes) just asked to support
 
 ROADMAP of TODAY:
-1. Do the metrics of topkaccuracy, harwarth and hamilton
+1. Do the metrics of topkaccuracy, harwarth and hamilton [Donebutnottested]
 2. Add audio to the video of wandb
 3. If able to throw more jobs then start an smart ablation
 4. Prepare the reunion of tomorrow of the insights retrieved
-6. Do code for using LVS
+6. Do code for using LVS [Checked]
 7. Do code for Siamese branch
 5. Do the code of processing old weights storage
 8. Maybe Download ADE20k
+
+### 28/03
+
+#### Reunió
+
+- Última reunió:
+    - El model només baixa la loss amb lr `1e-5`
+    - Veiem que aprén el model
+    - Provem amb SISA
+    - Després un mix
+    - Més ablation study
+
+- Amb SISA, passa lo mateix: Només amb `1e-5`
+
+- Quan Avaluació Qualitativa: El gran problema potser dim Temporal Specs:
+    - Amb Flickr era C x 57
+    - Amb Places Audio C x 42 per el sampling rate, es pot igualar amb el hoping size
+    - Harwarth és C x 128, i treu la DC component...
+    - Hamilton ni idea
+    - Això quan intentava refer el codi d'avaluació qualitativa en local
+
+- He estat fent el codi (given model, and sample make an inference) mentres s'anaven entrenant les SISA
+    - La integració al wandb està funcionant, però ha afegit tres minuts per epoch
+    - Fer codi per 2GPUS -> Comprovat que es parelelitza a dins del model però no hi ha cap millora de temps i inclós m'ha demostrat que triga més.  _Potser pq era batchsize de 512_ va petar aquest
+        - Molt suspitós qué el temps per epoch no canvia pel batch size ni pel nombre de GPUs
+            - 2GPUs afecta només al forwarding i batchloading...
+
+    - Per estudiar això vaig llençar cuatre jobs [wV,woV]x[1GPU,2GPUs] amb B=128
+        - M'han limitat l'ús al cluster
+    
+    - Tinc un codi estructurat per clases per fer inferència en local, descarregant les coses que fan falta. A dins del clúster perdia molt de temps...
+
+    - Al fer tants models m'he donat compte que estaba fent molta brossa i la guardava al $HOME llavors vaig dedicar temps a fer una nova manera de guardar-los al $SCRATCH (depen del Job) i accedir-los desde local o cluster
+
+- L'avaluació quantitativa està implementada però clar no testejada llavors ns si aquesta implementació es efficient o no, faria un toy example però m'interesa l'efecte amb T-epoch
+
+- Mostrar inferencies:
+    - Efecte del Batch Size
+    - Efecte learning rate
+    - Efecte de SISA vs MISA
+
+
+- Remaining Ablation Study que vull fer:
+1. Mix SISA vs MISA at certain step or Epoch
+2. Consider a way to in
+
+
+Coses a fer:
+- Imprimir els gradients
+- Ablation study del temperature
+- Optim amb momentum 0.9
+- Comprovar si hardcoded, Depen de la GPU
+
+
+After the meeting:
+- It is still very weird that the model doesn't learn neither oscilates with the lr 1e-3 1e-4
+- Everything should be due to the audio

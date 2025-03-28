@@ -509,7 +509,7 @@ def similarity_matrix_bxb(img_outs, aud_outs,temp=0.07,simtype='MISA'):
 
     
 
-def infoNCE_loss(image_outputs, audio_outputs,args):
+def infoNCE_loss(image_outputs, audio_outputs,args,return_S=False):
     """
         images_outputs (B x C x H x W) 
         audio_outputs  (B x C x T)
@@ -530,7 +530,52 @@ def infoNCE_loss(image_outputs, audio_outputs,args):
     loss_a_v = -torch.log(pos.sum(dim=0) / (pos.sum(dim=0) + neg.sum(dim=0))).mean() / 2
     loss = loss_v_a + loss_a_v
 
-    return loss
+    if return_S:
+        return loss, sims
+    else:
+        return loss
+
+import torch
+
+def topk_accuracy(sims, k=5, args=None):
+    """
+    Computes the Top-k accuracy for image-to-audio and audio-to-image retrieval.
+
+    Args:
+        sims: Similarity matrix (B x B) 
+        k: The value of k for top-k accuracy.
+        args: Additional arguments (e.g., similarity metric settings).
+
+    Returns:
+        acc_v_a: Top-k accuracy for image-to-audio retrieval.
+        acc_a_v: Top-k accuracy for audio-to-image retrieval.
+    """
+    B = sims.size(0)
+
+
+    # Ground truth indices (diagonal matches)
+    ground_truth = torch.arange(B, device=sims.device)
+
+    # ---- Image-to-Audio Retrieval ----
+    # Sort each row (images) by similarity scores in descending order
+    _, retrieved_audios = sims.topk(k, dim=1)
+    
+    # Check if the correct audio (diagonal) is within the top-k retrieved
+    correct_v_a = (retrieved_audios == ground_truth.view(-1, 1)).any(dim=1).float()
+
+    # ---- Audio-to-Image Retrieval ----
+    # Sort each column (audios) by similarity scores in descending order
+    _, retrieved_images = sims.t().topk(k, dim=1)
+
+    # Check if the correct image (diagonal) is within the top-k retrieved
+    correct_a_v = (retrieved_images == ground_truth.view(-1, 1)).any(dim=1).float()
+
+    # Compute mean accuracy
+    acc_v_a = correct_v_a.mean().item()
+    acc_a_v = correct_a_v.mean().item()
+
+    return acc_v_a, acc_a_v
+
 
 class GetSampleFromJson:
     def __init__(self, json_file, local_dir):

@@ -207,18 +207,18 @@ class ResNet(nn.Module):
 
     def _forward_impl(self, x):
         # See note [TorchScript super()]
-        if self.modal == 'audio':
-            x = self.conv1_a(x)
+        if self.modal == 'audio': # [1,257,670]
+            x = self.conv1_a(x)  # [64,129,335]
 
         else:
             x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
-        x = self.maxpool(x)
-        x = self.layer1(x)
-        x = self.layer2(x)      # 128*28*28
-        x = self.layer3(x)      # 256*14*14
-        x = self.layer4(x)      # 512*14*14
+        x = self.maxpool(x) # [64,65,168]
+        x = self.layer1(x)  # [64,65,168]
+        x = self.layer2(x)  # [128,33,84]    # 128*28*28
+        x = self.layer3(x)  # [256,17,42]    # 256*14*14
+        x = self.layer4(x)  #  [512,17,42]   # 512*14*14
         if self.dim_tgt:
             B = x.shape[0]
             x = self.avgpool(x).view(B, -1)

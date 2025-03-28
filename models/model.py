@@ -125,7 +125,7 @@ class AVENet(nn.Module):
         img = nn.functional.normalize(img, dim=1)
 
         # Audio
-        aud = self.audnet(audio) # B x 512 x 17 x 58
+        aud = self.audnet(audio) # [B,512,17,42]  B x 512 x 17 x 58
         aud = self.linearConvAud(aud) # B x 1024 x 17 x 58
         aud = torch.mean(aud, dim=2) # B x 1024 x 58
         aud = nn.functional.normalize(aud, dim=1)

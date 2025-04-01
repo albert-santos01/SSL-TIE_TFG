@@ -537,7 +537,7 @@ def infoNCE_loss(image_outputs, audio_outputs,args,return_S=False):
 
 import torch
 
-def topk_accuracy(sims, k=5, args=None):
+def topk_accuracy(sims, k=5):
     """
     Computes the Top-k accuracy for image-to-audio and audio-to-image retrieval.
 

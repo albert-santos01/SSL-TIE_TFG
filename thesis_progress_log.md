@@ -979,3 +979,35 @@ Coses a fer:
 After the meeting:
 - It is still very weird that the model doesn't learn neither oscilates with the lr 1e-3 1e-4
 - Everything should be due to the audio
+
+STUDY FOR NEW T-Dimension:
+at [self.layer1(x)](./networks/base_models.py#L218) it starts the temporal reduction but we should avoid the one at `self.layer3(x)`
+It reduces from 84 to 42 we should avoid that
+
+### 29/03
+
+TO DO today:
+- Hacer Vídeos y Entender un poco lo que sucede [Done]
+- Pedir al Clúster más minutos[Done]
+
+- Testear los modelos de manera quantitativamente
+- Entender y hacer report de como evitar ese downsampling en la layer 3
+
+### 01/03 
+
+In the past few days again a pause for emotional issues and for the preparation of an interview.
+
+What we are going to do the following. 
+ROADMAP:
+
+<<If we don't get the support's response. Ask Gloria>>
+
+1. Test all the models and check the TopK- Accuracy
+
+2. Avoid the down sampling layer 3 (Do a new branch?)
+------- enough for today -> extras -------
+3. Add the audio to the videos of WandB
+ 
+4. Write the code for LVS
+
+5. 

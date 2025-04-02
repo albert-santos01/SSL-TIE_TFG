@@ -167,7 +167,7 @@ class AVDataset(ABC, Dataset):
         if self.args.val_video_idx == index:
             audio = audio_path
         else:
-            audio = None
+            audio = 'None'
         return frame, spectrogram, audio, file, torch.tensor(frame_ori)
 
 

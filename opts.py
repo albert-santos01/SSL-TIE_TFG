@@ -44,6 +44,7 @@ def get_arguments():
     parser.add_argument('--video', action='store_true', help='Use video')
     parser.set_defaults(video=False)
     parser.add_argument('--val_video_idx', default=0, type=int, help="Index of the sample to integrate the dataset")
+    parser.add_argument('--val_video_freq', default=1,type=int, help="Freq for creating the video validation")
 
     parser.add_argument("--big_temp_dim", action='store_true',help="Do last max pooling or not to obtain more temporal resolution")
     parser.set_defaults(big_temp_dim=True)

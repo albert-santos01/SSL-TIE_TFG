@@ -164,8 +164,11 @@ class AVDataset(ABC, Dataset):
 
         spectrogram = self.AmplitudeToDB(spectrogram)
              
-
-        return frame, spectrogram, 'samples', file, torch.tensor(frame_ori)
+        if self.args.val_video_idx == index:
+            audio = audio_path
+        else:
+            audio = None
+        return frame, spectrogram, audio, file, torch.tensor(frame_ori)
 
 
         

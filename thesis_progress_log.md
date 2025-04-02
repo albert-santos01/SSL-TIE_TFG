@@ -1130,3 +1130,44 @@ And the condition to downsample the indentity:
                 )
 ```
 Therefore there's the thing
+- The first block of the sequence has the stride set to 2 whereas the next one is 1
+layer1:
+- self.inplanes 64
+- planes 64
+- stride 1
+therefore no dim reduction
+
+layer2:
+- self.inplanes 64
+- planes 128
+- stride 2
+
+layer3:
+- self.inplanes 128
+- planes 256
+- stride 2
+
+layer4:
+- self.inplanes 256
+- planes 512 
+- stride 1
+So only change of c dim
+
+Just finished, to not maxpool just use the flag `--big_temp_dim`. Nevertheless, the cluster still doesn't allow me to run the full training job id `153283`
+Hence, let us throw a job with such few time requested just to check if there was an improvement. Job id `153289`
+
+It has been submitted, then im throwing another ones to see th effect of the lr:
+- `153291` lr 1e-3
+- `153290` lr 1e-4
+
+Things I could do for tomorrow:
+
+- SISA to MISA in step or epoch
+- Do the same spectrograms as Harwarth et al. 2018 ()
+- Do the code for LVS
+- Do the code for siamese
+- Add time_regularization
+
+- Start writing the thesis
+- ADE20k??
+- DINOiser???

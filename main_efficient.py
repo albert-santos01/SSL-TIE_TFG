@@ -313,7 +313,7 @@ def validate(val_loader, model, criterion, device, epoch, args):
     video_gen = False
     with torch.no_grad():
         end = time.time()
-        for idx, (image, spec, audio, name, im) in tqdm(enumerate(val_loader), total=len(val_loader)):
+        for idx, (image, spec, audio_path, name, im) in tqdm(enumerate(val_loader), total=len(val_loader)):
 
             spec = Variable(spec).to(device, non_blocking=True)
             image = Variable(image).to(device, non_blocking=True)
@@ -340,6 +340,8 @@ def validate(val_loader, model, criterion, device, epoch, args):
                         idx_B   =  args.val_video_idx % B 
                         img_emb = imgs_out[idx_B]
                         aud_emb = auds_out[idx_B]
+                        audio = audio_path[idx_B]
+                        
 
                         matchmap = computeMatchmap(img_emb,aud_emb)
                         frame   = image[idx_B]
@@ -351,7 +353,7 @@ def validate(val_loader, model, criterion, device, epoch, args):
                             os.makedirs(video_dir)
                         video_dir = os.path.join(video_dir, f"epoch_{epoch}.mp4")
 
-                        mgv.create_video(video_dir) #TODO: Create Video path with audio 
+                        mgv.create_video_with_audio(video_dir,audio) 
                         video_gen = True
 
                         #Save link to the json file

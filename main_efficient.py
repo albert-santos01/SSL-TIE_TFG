@@ -51,7 +51,9 @@ from utils.eval_ import Evaluator
 from sklearn.metrics import auc
 from tqdm import tqdm
 
-from utils.util import update_json_file, MatchmapVideoGenerator, vis_loader, prepare_device, vis_heatmap_bbox, tensor2img, sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss
+from utils.util import topk_accuracy, update_json_file, MatchmapVideoGenerator,\
+      vis_loader, prepare_device, vis_heatmap_bbox, tensor2img, \
+      sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss
 from utils.tf_equivariance_loss import TfEquivarianceLoss
 import multiprocessing
 from datetime import datetime
@@ -299,6 +301,8 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
 def validate(val_loader, model, criterion, device, epoch, args):
     batch_time = AverageMeter()
     losses = AverageMeter()
+    acc_a_v_meter = AverageMeter()
+    acc_v_a_meter = AverageMeter() 
     
 
     tic = time.time()
@@ -318,15 +322,19 @@ def validate(val_loader, model, criterion, device, epoch, args):
 
             imgs_out, auds_out = model(image.float(), spec.float(), args, mode='val')
                             
-            loss_cl = infoNCE_loss(imgs_out,auds_out, args)
+            loss_cl,sims = infoNCE_loss(imgs_out,auds_out, args,return_S=True)
+            acc_v_a, acc_a_v = topk_accuracy(sims,k=5)
+            
 
             losses.update(loss_cl.item(), B)
+            acc_a_v_meter.update(acc_a_v)
+            acc_v_a_meter.update(acc_v_a)
            
             batch_time.update(time.time() - end)
             end = time.time()
             
 
-            if args.video:
+            if args.video and (epoch % args.val_video_freq) == 0:
                 if not video_gen:
                     if B*idx <= args.val_video_idx < idx*B + B:
                         idx_B   =  args.val_video_idx % B 
@@ -373,11 +381,19 @@ def validate(val_loader, model, criterion, device, epoch, args):
     return recalls
        """             
     
-    wandb.log({"val_loss": losses.avg, "epoch": epoch}) if args.use_wandb else None
+    if args.use_wandb:
+        wandb.log({
+            "val_loss": losses.avg,
+            "epoch": epoch,
+            "A->V R@5": acc_a_v_meter.avg,
+            "V->A R@5": acc_v_a_meter.avg
+        })
     print('Epoch: [{0}]\t Eval '
           'Loss: {loss.avg:.4f}  \t T-epoch: {t:.2f} \t'
-          .format(epoch, loss=losses, t=time.time()-tic))
-    return losses.avg, 0, 0
+          'A->V R@5: {a_v_r5:.4f} \t V->A R@5: {v_a_r5:.4f}'
+          .format(epoch, loss=losses, t=time.time()-tic, 
+                  a_v_r5=acc_a_v_meter.avg, v_a_r5=acc_v_a_meter.avg))
+    return losses.avg, acc_a_v_meter.avg, acc_v_a_meter.avg
 
         
 
@@ -696,6 +712,7 @@ def main(args):
             
         #It always goes here unless --eval_start x is set (default = l)
         if epoch % args.eval_freq == 0:
+            #TODO: We should change this, now that it considers R@5
             val_loss, _, mean_ciou = validate(val_loader, model, criterion, device, epoch, args)
 
             if args.order_3_tensor: #This val_loss will be considered as the metric from now

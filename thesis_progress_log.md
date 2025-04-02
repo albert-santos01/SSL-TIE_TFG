@@ -993,7 +993,7 @@ TO DO today:
 - Testear los modelos de manera quantitativamente
 - Entender y hacer report de como evitar ese downsampling en la layer 3
 
-### 01/03 
+### 01/04 
 
 In the past few days again a pause for emotional issues and for the preparation of an interview.
 
@@ -1002,7 +1002,7 @@ ROADMAP:
 
 <<If we don't get the support's response. Ask Gloria>>
 
-1. Test all the models and check the TopK- Accuracy
+1. Test all the models and check the TopK- Accuracy [Done]
 
 2. Avoid the down sampling layer 3 (Do a new branch?)
 ------- enough for today -> extras -------
@@ -1011,3 +1011,58 @@ ROADMAP:
 4. Write the code for LVS
 
 5. 
+
+
+
+### 02/04
+
+- So the models are checked, the results are useless, they depend a lot on the batch size, however it demonstrates again that the model is learning something. 
+- We may have some minutes in the cluster but not enough for a full training
+- [Checked] Uploaded a version where video is uploaded every freq given and the topkaccuracy for R@5
+    it is checked at WandB subset project
+
+Here's the report:
+
+``Avoiding Downsampling``
+The new code well happen to be very invasive therefore a new branch is done in order to check if it works
+
+Report results:
+| Model Name                                              | Epoch |   Loss   | Acc A→V | Acc V→A |
+|--------------------------------------------------------|-------|---------|---------|---------|
+| SSL_TIE_PlacesAudio_lr1e-5-2ly-B128-SISA               | 100.0 | 5.398741 | 0.275202 | 0.183468 |
+| SSL_TIE_PlacesAudio_lr1e-5-2ly-B128-MISA               | 100.0 | 4.528646 | 0.270161 | 0.232863 |
+| SSL_TIE_PlacesAudio_lr1e-5-2ly-B256-MISA               | 100.0 | 4.520318 | 0.257056 | 0.221774 |
+| SSL_TIE_PlacesAudio-lr1e-5-2ly-B128-SISA-1GPUS-wV      |  13.0 | 3.928914 | 0.287298 | 0.215726 |
+| SSL_TIE_PlacesAudio_lr1e-3-2ly-B128-SISA               |  39.0 | 3.465736 | 0.156250 | 0.156250 |
+| SSL_TIE_PlacesAudio_lr1e-4-2ly-B32-MISA                | 100.0 | 3.465736 | 0.156250 | 0.156250 |
+| SSL_TIE_PlacesAudio_lr1e-5-2ly-B32-MISA                | 100.0 | 3.315941 | 0.478831 | 0.439516 |
+
+
+Things that we could do before the Avoid MaxPooling task:
+1. Add the audio to the wandb
+2. Do Topk for R@1 R@5 R@10
+Then do new branch
+
+
+`Audio to Wandb`
+One solution for the audio
+
+## Things to consider in the long run
+The dataloader gives at __getitem__ :
+```python
+return frame, spectrogram, audio_path, file, torch.tensor(frame_ori)
+```
+Which this can cause a lot of computational time since it affects the dataloader process, (it loads all of this x B, every step...)
+
+Maybe we could do another branch once the code is final that only gives the frame and spectrogram
+
+
+
+#### Things for reunion
+Is it correct the approach? 
+sims [[]]audios x images
+A to Vid is is top [s11,s12,s13,s14] sorts the row. Therefore for one audio sorts the similarities against all the images
+
+
+`Do topk Accuracies`
+This is done, However, we found out that we should do is the similarity matrix against the whole dataset not only in the batch size... See Harwarth

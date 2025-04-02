@@ -51,7 +51,8 @@ from utils.eval_ import Evaluator
 from sklearn.metrics import auc
 from tqdm import tqdm
 
-from utils.util import topk_accuracy, update_json_file, MatchmapVideoGenerator,\
+from utils.util import topk_accuracies, similarity_matrix_bxb, \
+      topk_accuracy, update_json_file, MatchmapVideoGenerator,\
       vis_loader, prepare_device, vis_heatmap_bbox, tensor2img, \
       sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss
 from utils.tf_equivariance_loss import TfEquivarianceLoss
@@ -301,8 +302,10 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
 def validate(val_loader, model, criterion, device, epoch, args):
     batch_time = AverageMeter()
     losses = AverageMeter()
-    acc_a_v_meter = AverageMeter()
-    acc_v_a_meter = AverageMeter() 
+    
+    img_embs_all = []
+    aud_embs_all = []
+
     
 
     tic = time.time()
@@ -321,14 +324,17 @@ def validate(val_loader, model, criterion, device, epoch, args):
             # vis_loader(image, spec,idx)
 
             imgs_out, auds_out = model(image.float(), spec.float(), args, mode='val')
-                            
-            loss_cl,sims = infoNCE_loss(imgs_out,auds_out, args,return_S=True)
-            acc_v_a, acc_a_v = topk_accuracy(sims,k=5)
-            
+
+            imgs_out = imgs_out.detach()
+            auds_out = auds_out.detach()
+ 
+
+            loss_cl = infoNCE_loss(imgs_out,auds_out, args)
+
+            img_embs_all.append(imgs_out)
+            aud_embs_all.append(auds_out)
 
             losses.update(loss_cl.item(), B)
-            acc_a_v_meter.update(acc_a_v)
-            acc_v_a_meter.update(acc_v_a)
            
             batch_time.update(time.time() - end)
             end = time.time()
@@ -362,40 +368,45 @@ def validate(val_loader, model, criterion, device, epoch, args):
                         if args.use_wandb:
                             wandb.log({"val_video": wandb.Video(video_dir, caption=f"Epoch {epoch}"), "epoch": epoch})
 
+    imgs_out_all = torch.cat(img_embs_all)
+    auds_out_all = torch.cat(aud_embs_all)
 
-
-    """    
-        recalls = calc_recalls(image_output, audio_output, nframes, simtype=args.simtype)
-        A_r10 = recalls['A_r10']
-        I_r10 = recalls['I_r10']
-        A_r5 = recalls['A_r5']
-        I_r5 = recalls['I_r5']
-        A_r1 = recalls['A_r1']
-        I_r1 = recalls['I_r1']
-
-    print(' * Audio R@10 {A_r10:.3f} Image R@10 {I_r10:.3f} over {N:d} validation pairs'
-          .format(A_r10=A_r10, I_r10=I_r10, N=N_examples), flush=True)
-    print(' * Audio R@5 {A_r5:.3f} Image R@5 {I_r5:.3f} over {N:d} validation pairs'
-          .format(A_r5=A_r5, I_r5=I_r5, N=N_examples), flush=True)
-    print(' * Audio R@1 {A_r1:.3f} Image R@1 {I_r1:.3f} over {N:d} validation pairs'
-          .format(A_r1=A_r1, I_r1=I_r1, N=N_examples), flush=True)
-
-    return recalls
-       """             
+    sims = similarity_matrix_bxb(imgs_out_all,auds_out_all)
     
+    recalls    = topk_accuracies(sims, [1,5,10])
+    A_r10 = recalls["A_r10"]
+    A_r5  = recalls["A_r5"]
+    A_r1  = recalls["A_r1"]
+    I_r10   = recalls["I_r10"]
+    I_r5    = recalls["I_r5"]
+    I_r1    = recalls["I_r1"]
+       
     if args.use_wandb:
         wandb.log({
             "val_loss": losses.avg,
             "epoch": epoch,
-            "A->V R@5": acc_a_v_meter.avg,
-            "V->A R@5": acc_v_a_meter.avg
+            "A->V R@10": A_r10,
+            "A->V R@5": A_r5,
+            "A->V R@1": A_r1,
+            "V->A R@10": I_r10,
+            "V->A R@5": I_r5,
+            "V->A R@1": I_r1
         })
+
+    N_examples= len(val_loader)
+
     print('Epoch: [{0}]\t Eval '
           'Loss: {loss.avg:.4f}  \t T-epoch: {t:.2f} \t'
-          'A->V R@5: {a_v_r5:.4f} \t V->A R@5: {v_a_r5:.4f}'
-          .format(epoch, loss=losses, t=time.time()-tic, 
-                  a_v_r5=acc_a_v_meter.avg, v_a_r5=acc_v_a_meter.avg))
-    return losses.avg, acc_a_v_meter.avg, acc_v_a_meter.avg
+          .format(epoch, loss=losses, t=time.time()-tic))
+    
+    print(' * Audio R@10 {A_r10:.3f} Image R@10 {I_r10:.3f} over {N:d} validation pairs'
+        .format(A_r10=A_r10, I_r10=I_r10, N=N_examples), flush=True)
+    print(' * Audio R@5 {A_r5:.3f} Image R@5 {I_r5:.3f} over {N:d} validation pairs'
+        .format(A_r5=A_r5, I_r5=I_r5, N=N_examples), flush=True)
+    print(' * Audio R@1 {A_r1:.3f} Image R@1 {I_r1:.3f} over {N:d} validation pairs'
+        .format(A_r1=A_r1, I_r1=I_r1, N=N_examples), flush=True)
+    
+    return losses.avg, 0, 0
 
         
 

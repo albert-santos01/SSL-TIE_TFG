@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import shutil
 import json
 
 import torch
@@ -829,14 +830,14 @@ class MatchmapVideoGenerator:
         ]
         
         try:
-            subprocess.run(command,stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
-            # Delete the original video file
-            os.remove(video_path)
-            # Rename the temporary output file to the original video file
-            os.rename(temp_output, video_path)
+            subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
+            if os.path.exists(temp_output):  # Ensure the temporary file exists
+                os.remove(video_path)  # Delete the original video file
+                shutil.move(temp_output, video_path)  # Rename the temporary file
+            else:
+                raise Exception("Error: Temporary output file not created.")
         except subprocess.CalledProcessError as e:
-            print(f"Error adding audio to video. FFMPEG error {e.stderr.decode()}")
-
+            raise Exception(f"Error during ffmpeg execution: {e.stderr.decode('utf-8')}")
 
     def create_video_with_audio(self, output_path, audio_path):
         self.create_video(output_path)
@@ -890,4 +891,3 @@ def update_json_file(path_2_json, epochs_dict, epoch, key, link_2_store):
 
 
 
-    

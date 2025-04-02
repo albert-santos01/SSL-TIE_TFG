@@ -1047,7 +1047,7 @@ Then do new branch
 `Audio to Wandb`
 One solution for the audio
 
-## Things to consider in the long run
+#### Things to consider in the long run
 The dataloader gives at __getitem__ :
 ```python
 return frame, spectrogram, audio_path, file, torch.tensor(frame_ori)
@@ -1066,3 +1066,67 @@ A to Vid is is top [s11,s12,s13,s14] sorts the row. Therefore for one audio sort
 
 `Do topk Accuracies`
 This is done, However, we found out that we should do is the similarity matrix against the whole dataset not only in the batch size... See Harwarth
+
+Okay now that we finished analyzing the whole dataset we see that reasonably our models are really underperforming:
+| Model Name                                              | Epoch |   Loss   | A_r10   | A_r5    | A_r1    | I_r10   | I_r5    | I_r1    |
+|--------------------------------------------------------|-------|---------|---------|---------|---------|---------|---------|---------|
+| SSL_TIE_PlacesAudio_lr1e-5-2ly-B128-SISA               | 100.0 | 5.398741 | 0.011089 | 0.006048 | 0.001008 | 0.030242 | 0.014113 | 0.001008 |
+| SSL_TIE_PlacesAudio_lr1e-5-2ly-B128-MISA               | 100.0 | 4.528646 | 0.014113 | 0.008065 | 0.001008 | 0.035282 | 0.019153 | 0.003024 |
+| SSL_TIE_PlacesAudio_lr1e-5-2ly-B256-MISA               | 100.0 | 4.520318 | 0.017137 | 0.012097 | 0.004032 | 0.025202 | 0.014113 | 0.003024 |
+| SSL_TIE_PlacesAudio-lr1e-5-2ly-B128-SISA-1GPUS-wV      |  13.0 | 3.928914 | 0.019153 | 0.008065 | 0.002016 | 0.030242 | 0.016129 | 0.004032 |
+| SSL_TIE_PlacesAudio_lr1e-3-2ly-B128-SISA               |  39.0 | 3.465736 | 0.010081 | 0.005040 | 0.001008 | 0.010081 | 0.005040 | 0.001008 |
+| SSL_TIE_PlacesAudio_lr1e-4-2ly-B32-MISA                | 100.0 | 3.465736 | 0.010081 | 0.005040 | 0.001008 | 0.010081 | 0.005040 | 0.001008 |
+| SSL_TIE_PlacesAudio_lr1e-5-2ly-B32-MISA                | 100.0 | 3.315941 | 0.074597 | 0.048387 | 0.009073 | 0.084677 | 0.063508 | 0.014113 |
+
+Now we should check that the the audio and the topk_accuracies work indeed, thus throwing job to the cluster. [ALL_CHECKED]
+
+Now we proceed to do Avoid Maxpooling:
+####  Avoid Maxpooling
+```python
+def _forward_impl(self, x):
+        # See note [TorchScript super()]
+        if self.modal == 'audio': # [1,257,670]
+            x = self.conv1_a(x)  # [64,129,335]
+
+        else:
+            x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x) # [64,65,168]
+        x = self.layer1(x)  # [64,65,168]
+        x = self.layer2(x)  # [128,33,84]    # 128*28*28
+        x = self.layer3(x)  # [256,17,42]    # 256*14*14
+        x = self.layer4(x)  #  [512,17,42]   # 512*14*14
+        if self.dim_tgt:
+            B = x.shape[0]
+            x = self.avgpool(x).view(B, -1)
+            x = self.dim_mapping(x)
+
+        return x
+
+```
+Notes:
+- At layer 2 there's a dim reduction
+- What is interesting is that at each layer the BasicBlock (Residual) is done twice, this is because at the init it has layers = [2,2,2,2]
+- The each block is computed sequentially thanks to `nn.Sequential(*layers)` at [Ref](./networks/base_models.py#L206)
+- Okay so what is reducing the size it's basically the stride that its defined at the init
+
+```python
+        self.layer1 = self._make_layer(block, 64, layers[0], stride=1)
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
+                                       dilate=replace_stride_with_dilation[0])
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
+                                       dilate=replace_stride_with_dilation[1])
+        self.layer4 = self._make_layer(block, 512, layers[3], stride=1,
+                                       dilate=replace_stride_with_dilation[2])
+```
+And the condition to downsample the indentity:
+
+```python
+    if stride != 1 or self.inplanes != planes * block.expansion:
+                downsample = nn.Sequential(
+                    conv1x1(self.inplanes, planes * block.expansion, stride),
+                    norm_layer(planes * block.expansion),
+                )
+```
+Therefore there's the thing

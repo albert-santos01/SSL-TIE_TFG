@@ -343,6 +343,7 @@ def validate(val_loader, model, criterion, device, epoch, args):
             if args.video and (epoch % args.val_video_freq) == 0:
                 if not video_gen:
                     if B*idx <= args.val_video_idx < idx*B + B:
+                        t_make_video =time.time()
                         idx_B   =  args.val_video_idx % B 
                         img_emb = imgs_out[idx_B]
                         aud_emb = auds_out[idx_B]
@@ -360,13 +361,16 @@ def validate(val_loader, model, criterion, device, epoch, args):
                         video_dir = os.path.join(video_dir, f"epoch_{epoch}.mp4")
 
                         mgv.create_video_with_audio(video_dir,audio) 
+                        print(f" - Time elapsed for creating the video: {time.time() - t_make_video:.2f}")
                         video_gen = True
 
-                        #Save link to the json file
+                        # Save link to the json file
                         args.epochs_data = update_json_file(args.links_path, args.epochs_data, epoch, "video_link", video_dir)
 
                         if args.use_wandb:
+                            t_upload_video = time.time()
                             wandb.log({"val_video": wandb.Video(video_dir, caption=f"Epoch {epoch}"), "epoch": epoch})
+                            print(f" - Time elapsed for uploading the video to wandb: {time.time() - t_upload_video:.2f}")
 
     imgs_out_all = torch.cat(img_embs_all)
     auds_out_all = torch.cat(aud_embs_all)

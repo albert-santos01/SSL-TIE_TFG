@@ -576,6 +576,37 @@ def topk_accuracy(sims, k=5):
 
     return acc_v_a, acc_a_v
 
+def topk_accuracies(sims, ks=[1, 5, 10]):
+    """
+    Computes the Top-k accuracy (Recall@k) for multiple k values for image-to-audio and audio-to-image retrieval.
+
+    Args:
+        sims: Similarity matrix (B x B)
+        ks: List of k values for which Recall@k should be computed.
+
+    Returns:
+        results: Dictionary containing both Audio and Image Recall@k values.
+    """
+    B = sims.size(0)
+    max_k = max(ks)  # Get the maximum k needed
+
+    # Ground truth indices (diagonal matches)
+    ground_truth = torch.arange(B, device=sims.device)
+
+    # ---- Compute Top-k indices once ----
+    _, retrieved_images = sims.topk(max_k, dim=1)  # Audio-to-Image (Retrieve images for audio queries)
+    _, retrieved_audios = sims.t().topk(max_k, dim=1)  # Image-to-Audio (Retrieve audios for image queries)
+
+    # ---- Compute Recall@k in a single loop ----
+    results = {}
+    for k in ks:
+        acc_a_v = (retrieved_images[:, :k] == ground_truth.view(-1, 1)).any(dim=1).float().mean().item()  # Audio-to-Image
+        acc_v_a = (retrieved_audios[:, :k] == ground_truth.view(-1, 1)).any(dim=1).float().mean().item()  # Image-to-Audio
+
+        results[f"A_r{k}"] = acc_a_v
+        results[f"I_r{k}"] = acc_v_a
+
+    return results
 
 class GetSampleFromJson:
     def __init__(self, json_file, local_dir):

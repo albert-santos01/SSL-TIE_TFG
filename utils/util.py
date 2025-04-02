@@ -798,13 +798,13 @@ class MatchmapVideoGenerator:
         ]
         
         try:
-            subprocess.run(command, check=True)
+            subprocess.run(command,stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
             # Delete the original video file
             os.remove(video_path)
             # Rename the temporary output file to the original video file
             os.rename(temp_output, video_path)
-        except subprocess.CalledProcessError:
-            print("Error adding audio to video.")
+        except subprocess.CalledProcessError as e:
+            print(f"Error adding audio to video. FFMPEG error {e.stderr.decode()}")
 
 
     def create_video_with_audio(self, output_path, audio_path):

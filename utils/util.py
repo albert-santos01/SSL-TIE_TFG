@@ -517,7 +517,13 @@ def infoNCE_loss(image_outputs, audio_outputs,args,return_S=False):
         Assumption: the channel dimension is already normalized
         Returns the InfoNCE loss
     """
-   
+    if args.big_temp_dim:
+        assert (audio_outputs.size(2) > 70)
+
+    assert (len(image_outputs.shape) == 4)
+    assert (len(audio_outputs.shape) == 3)
+
+
     B = image_outputs.size(0)
     mask = torch.eye(B, device=image_outputs.device)
 

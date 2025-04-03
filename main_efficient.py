@@ -325,8 +325,8 @@ def validate(val_loader, model, criterion, device, epoch, args):
 
             imgs_out, auds_out = model(image.float(), spec.float(), args, mode='val')
 
-            imgs_out = imgs_out.detach()
-            auds_out = auds_out.detach()
+            imgs_out = imgs_out.to('cpu').detach()
+            auds_out = auds_out.to('cpu').detach()
  
 
             loss_cl = infoNCE_loss(imgs_out,auds_out, args)

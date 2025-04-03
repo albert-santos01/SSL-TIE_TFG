@@ -182,6 +182,12 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     
     loss_debug = 0
 
+    if args.SISA_2_MISA_epoch != 0 and args.SISA_2_MISA_epoch >= epoch:
+        print(f" - Changing from {args.simtype} to MISA at epoch {epoch} -")
+        args.simtype = 'MISA'
+        args.SISA_2_MISA_epoch = 0
+
+
     for idx, (image, spec, audio, name, img_numpy) in enumerate(train_loader):
         data_time.update(time.time() - end)
         spec = Variable(spec).to(device, non_blocking=True)
@@ -192,7 +198,12 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         # First branch of the siamese network
         imgs_out, auds_out = model(image.float(), spec.float(), args, mode='train')
         
-        # loss_cl =  sampled_margin_rank_loss(imgs_out, auds_out, margin=1., simtype=args.simtype)   
+        if args.SISA_2_MISA_step !=0 and args.SISA_2_MISA_step >= idx:
+            print(f" - Changing from {args.simtype} to MISA at step {idx}, considering batch size {B} and {len(train_loader)} batches")
+            args.simtype = 'MISA'
+            args.SISA_2_MISA_epoch = 0
+            
+
         loss_cl = infoNCE_loss(imgs_out,auds_out, args)        
 
         if args.siamese:

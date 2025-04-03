@@ -53,7 +53,7 @@ def get_arguments():
     parser.add_argument('--SISA_2_MISA_epoch', default=0,type=int, help="Threshold to Change to MISA at certain epoch")
 
     parser.add_argument('--spec_DAVENet', action='store_true', help= "Load the audios as DAVENet configuration")
-    parser.set_defaults(spec_DAVENet=True)
+    parser.set_defaults(spec_DAVENet=False)
 
     #
     

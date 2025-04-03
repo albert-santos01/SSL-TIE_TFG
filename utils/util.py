@@ -890,6 +890,80 @@ def update_json_file(path_2_json, epochs_dict, epoch, key, link_2_store):
 
 
 
+#FOR INTERACTING WITH THE CLUSTER
+
+def folder_exists_in_cluster(remote_path):
+    # Command to check if the folder exists
+    check_command = f"ssh -p 2122 asantos@pirineus3.csuc.cat '[ -d \"{remote_path}\" ] && echo Exists || echo NotExists'"
+    result = subprocess.run(check_command, shell=True, capture_output=True, text=True)
+    
+    return result.stdout.strip() == "Exists"
+
+def count_files_in_folder(remote_path):
+    # Command to count files in the folder
+    count_command = f"ssh -p 2122 asantos@pirineus3.csuc.cat 'ls -1 \"{remote_path}\" | wc -l'"
+    result = subprocess.run(count_command, shell=True, capture_output=True, text=True)
+
+    return int(result.stdout.strip()) if result.stdout.strip().isdigit() else 0
+
+def list_files_in_remote_folder(remote_path):
+    # Command to list all files in the remote folder
+    list_command = f"ssh -p 2122 asantos@pirineus3.csuc.cat 'ls -1 \"{remote_path}\"'"
+    result = subprocess.run(list_command, shell=True, capture_output=True, text=True)
+    
+    if result.returncode == 0:
+        return result.stdout.strip().split('\n') if result.stdout.strip() else []
+    else:
+        print(f"Error listing files in remote folder: {result.stderr}")
+        return []
+
+def download_remote_file(remote_path, local_path):
+    """
+    Downloads a specific file from a remote folder to a local folder using scp.
+    """
+    # Check if the file already exists locally
+    if os.path.exists(local_path):
+        print(f"File already exists locally: {local_path}")
+        return
+
+    # Ensure the local directory exists
+    local_dir = os.path.dirname(local_path)
+    if not os.path.exists(local_dir):
+        os.makedirs(local_dir) 
+    
+
+    # Command to download the specific file
+    download_command = f"scp -P 2122 asantos@pirineus3.csuc.cat:\"{remote_path}\" \"{local_path}\""
+    result = subprocess.run(download_command, shell=True, capture_output=True, text=True)
+
+    if result.returncode == 0:
+        print(f"Successfully downloaded {remote_path} to {local_path}")
+    else:
+        print(f"Error downloading {remote_path}: {result.stderr}")
+
+
+def upload_file_to_cluster(local_path, remote_path):
+    """
+    Uploads a specific file from a local folder to a remote folder using scp.
+    """
+    # Check if the local file exists
+    if not os.path.exists(local_path):
+        print(f"Local file does not exist: {local_path}")
+        return
+
+    # Ensure the remote directory exists
+    remote_dir = os.path.dirname(remote_path)
+    create_remote_dir_command = f"ssh -p 2122 asantos@pirineus3.csuc.cat 'mkdir -p \"{remote_dir}\"'"
+    subprocess.run(create_remote_dir_command, shell=True, capture_output=True, text=True)
+
+    # Command to upload the specific file
+    upload_command = f"scp -P 2122 \"{local_path}\" asantos@pirineus3.csuc.cat:\"{remote_path}\""
+    result = subprocess.run(upload_command, shell=True, capture_output=True, text=True)
+
+    if result.returncode == 0:
+        print(f"Successfully uploaded {local_path} to {remote_path}")
+    else:
+        print(f"Error uploading {local_path}: {result.stderr}")
 
 
 

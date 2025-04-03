@@ -19,6 +19,7 @@ import pdb
 import time
 from PIL import Image, ImageFilter
 import glob
+import scipy
 import sys
 import warnings
 warnings.filterwarnings("ignore")
@@ -60,6 +61,9 @@ class AVDataset(ABC, Dataset):
         self._init_atransform()
         self.video_files = []
         self.audio_conf = {}
+        self.windows = {'hamming': scipy.signal.hamming,
+        'hann': scipy.signal.hann, 'blackman': scipy.signal.blackman,
+           'bartlett': scipy.signal.bartlett}
 
     def _init_transform(self):
         mean = [0.485, 0.456, 0.406]
@@ -183,7 +187,8 @@ class AVDataset(ABC, Dataset):
             logspec = logspec[:,0:p]
             n_frames = target_length
         logspec = torch.FloatTensor(logspec)
-        return logspec, n_frames
+        # return logspec, n_frames
+        return logspec.unsqueeze(0)
 
     def _load_audio_SSL_TIE(self,file):
         samples, samplerate = torchaudio.load(file)

@@ -48,6 +48,10 @@ def get_arguments():
 
     parser.add_argument("--big_temp_dim", action='store_true',help="Do last max pooling or not to obtain more temporal resolution")
     parser.set_defaults(big_temp_dim=True)
+
+    parser.add_argument('--SISA_2_MISA_step', default=0, type=int, help="Threshold to Change to MISA at certain step of the first epoch")
+    parser.add_argument('--SISA_2_MISA_epoch', default=0,type=int, help="Threshold to Change to MISA at certain epoch")
+    
     #
     
     parser.add_argument('--trainset', default='VGGSS', type=str, help="Training dataset")

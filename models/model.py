@@ -28,7 +28,11 @@ class AVENet(nn.Module):
         else:
             from networks import base_models as base_models
         self.imgnet = base_models.resnet18(modal='vision', pretrained=False)
-        self.audnet = base_models.resnet18(modal='audio')
+        if args.big_temp_dim:
+            stride= 1
+        else:
+            stride =2
+        self.audnet = base_models.resnet18(modal='audio',stride_ly_3=stride)
         self.avgpool = nn.AdaptiveMaxPool2d((1, 1))
         self.m = nn.Sigmoid()
 

@@ -116,7 +116,7 @@ class Bottleneck(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, block, layers, modal, num_classes=1000, zero_init_residual=False,
+    def __init__(self, block, layers, modal, stride_ly_3=2, num_classes=1000, zero_init_residual=False,
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
                  norm_layer=None,
                  dim_tgt=None
@@ -151,7 +151,7 @@ class ResNet(nn.Module):
         self.layer1 = self._make_layer(block, 64, layers[0], stride=1)
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
                                        dilate=replace_stride_with_dilation[0])
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=stride_ly_3,             # Just change the stride to 1
                                        dilate=replace_stride_with_dilation[1])
         self.layer4 = self._make_layer(block, 512, layers[3], stride=1,
                                        dilate=replace_stride_with_dilation[2])
@@ -232,20 +232,20 @@ class ResNet(nn.Module):
         return self._forward_impl(x)
 
 
-def _resnet(arch, block, layers, pretrained, progress, modal, **kwargs):
-    model = ResNet(block, layers, modal, **kwargs)
+def _resnet(arch, block, layers, pretrained, progress, modal, stride_ly_3, **kwargs):
+    model = ResNet(block, layers, modal, stride_ly_3, **kwargs)
     if pretrained:
         print('load pretrained res-18')
         checkpoint = 'https://download.pytorch.org/models/resnet18-5c106cde.pth'
         model.load_state_dict(torch.hub.load_state_dict_from_url(checkpoint, progress=False), strict=False)
     return model
 
-def resnet18(pretrained=False, progress=True, modal='vision',**kwargs):
+def resnet18(pretrained=False, progress=True, modal='vision',stride_ly_3=2,**kwargs):
     r"""ResNet-18 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
-    return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress, modal, **kwargs)
+    return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress, modal, stride_ly_3, **kwargs)
 

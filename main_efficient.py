@@ -187,7 +187,7 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         args.SISA_2_MISA_epoch = 0
 
 
-    for idx, (image, spec, audio, name, img_numpy) in enumerate(train_loader):
+    for idx, (image, spec, _ ) in enumerate(train_loader):
         data_time.update(time.time() - end)
         spec = Variable(spec).to(device, non_blocking=True)
         image = Variable(image).to(device, non_blocking=True) 
@@ -326,7 +326,7 @@ def validate(val_loader, model, criterion, device, epoch, args):
     video_gen = False
     with torch.no_grad():
         end = time.time()
-        for idx, (image, spec, audio_path, name, im) in tqdm(enumerate(val_loader), total=len(val_loader)):
+        for idx, (image, spec, audio_path) in tqdm(enumerate(val_loader), total=len(val_loader)):
 
             spec = Variable(spec).to(device, non_blocking=True)
             image = Variable(image).to(device, non_blocking=True)

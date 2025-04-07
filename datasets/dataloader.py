@@ -228,7 +228,7 @@ class AVDataset(ABC, Dataset):
         audio_path = self._get_audio(file)
 
         frame = self.img_transform(self._load_frame( frame_path ))
-        frame_ori = np.array(self._load_frame(frame_path))
+        # frame_ori = np.array(self._load_frame(frame_path))
 
         if self.args.spec_DAVENet:
             spectrogram = self._load_audio_DAVENet(audio_path)
@@ -239,7 +239,8 @@ class AVDataset(ABC, Dataset):
             audio = audio_path
         else:
             audio = 'None'
-        return frame, spectrogram, audio, file, torch.tensor(frame_ori)
+        # return frame, spectrogram, audio, file, torch.tensor(frame_ori)
+        return frame, spectrogram, audio
 
 
         

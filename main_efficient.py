@@ -95,25 +95,13 @@ def cal_auc(iou):
 
 def set_path(args):
     if args.resume: 
-        exp_path = os.path.dirname(os.path.dirname(args.resume)) # It should be the parent directory of the model
-        links_path = ""
+        links_path = os.path.dirname(os.path.expandvars(args.resume)) # It should be the parent directory of the model
+        links_path = os.path.join(links_path, 'links_resume_{args.exp_name}_{args.job_id}.json'.format(args=args))
+
     elif args.test: 
         exp_path = os.path.dirname(os.path.dirname(args.test))
         links_path = ""
     else:
-        # exp_path = 'ckpts/{args.exp_name}'.format(args=args)
-                                
-        # Check if we are using the cluster 
-        if len(os.sched_getaffinity(0)) > 16: 
-            exp_path = os.path.expandvars('$SCRATCH/{args.exp_name}'.format(args=args))
-        else:
-            exp_path = 'garbage/{args.exp_name}'.format(args=args)
-
-        if not os.path.exists(exp_path):
-            os.makedirs(exp_path)
-        else:
-            print('The experiment folder already exists')
-        
         links_path = os.path.expandvars('$HOME/models/{args.exp_name}'.format(args=args))
         
         if not os.path.exists(links_path):
@@ -121,29 +109,39 @@ def set_path(args):
         
         #Reuse variable
         links_path = os.path.join(links_path, 'links_{args.exp_name}_{args.job_id}.json'.format(args=args))
+                                
+    # Create the experiment folder
+    if len(os.sched_getaffinity(0)) > 16: 
+        exp_path = os.path.expandvars('$SCRATCH/{args.exp_name}'.format(args=args))
+    else:
+        exp_path = 'garbage/{args.exp_name}'.format(args=args) #if not using the cluster
+
+    if not os.path.exists(exp_path):
+        os.makedirs(exp_path)
+    else:
+        print('The experiment folder already exists')
         
-        # Load existing data if JSON file exists, else start with an empty dictionary
-        if os.path.exists(links_path):
-            with open(links_path, "r") as json_file:
-                args.epochs_data = json.load(json_file)
-        else:
-            
-            # Create dictionary with epoch entries
-            current_time = datetime.now().strftime("%Y-%m-%d %H:%M")
-            epochs_data = {
-                "parameters": {
-                    "time_creation": current_time,
-                    "learning_rate": args.learning_rate,
-                    "batch_size": args.batch_size,
-                    "simtype":  args.simtype,
-                    "temperature": args.temperature,
-                    "val_video_idx": args.val_video_idx
-                }
+    
+    # Load existing data if JSON file exists, else start with an empty dictionary
+    if os.path.exists(links_path):
+        with open(links_path, "r") as json_file:
+            args.epochs_data = json.load(json_file)
+    else:
+        
+        # Create dictionary with epoch entries
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+        epochs_data = {
+            "parameters": {
+                "time_creation": current_time,
+                "learning_rate": args.learning_rate,
+                "batch_size": args.batch_size,
+                "simtype":  args.simtype,
+                "temperature": args.temperature,
+                "val_video_idx": args.val_video_idx
             }
-            args.epochs_data = epochs_data
+        }
+        args.epochs_data = epochs_data
 
-
-        
 
     img_path = os.path.join(exp_path, 'img') 
     model_path = os.path.join(exp_path, 'model') 

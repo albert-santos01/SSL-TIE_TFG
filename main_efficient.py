@@ -688,10 +688,12 @@ def main(args):
             state_dict = checkpoint['state_dict']
 
             try: 
+                # Load the model state dict
                 model_without_dp.load_state_dict(state_dict)
+                
             except:
-                print('[WARNING] resuming training with different weights')
-                neq_load_customized(model_without_dp, state_dict, verbose=True)
+                raise ValueError("Error loading the model state dict. Please check the checkpoint file.")
+                # neq_load_customized(model_without_dp, state_dict, verbose=True)
             
             print("=> load resumed checkpoint '{}' (epoch {})".format(args.resume, checkpoint['epoch']))
             
@@ -701,6 +703,7 @@ def main(args):
                 print('[WARNING] failed to load optimizer state, initialize optimizer')
         else:
             print("[Warning] no checkpoint found at '{}', use random init".format(args.resume))
+            raise ValueError("Checkpoint not found. Please check the path.")
 
     else:
         print('Train the model from scratch on {0} for {1}!'.format(args.dataset_mode,args.exp_name))

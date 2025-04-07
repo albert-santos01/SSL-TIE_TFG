@@ -156,7 +156,7 @@ def set_path(args):
 
 
 def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
-    torch.set_grad_enabled(True)
+    # torch.set_grad_enabled(True)
     batch_time = AverageMeter('Time',':.2f')
     data_time = AverageMeter('Data',':.2f')
     losses = AverageMeter('Loss',':.4f')
@@ -170,7 +170,6 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         [batch_time, data_time, losses],
         prefix='Epoch:[{}]'.format(epoch))
     
-    # basicblock = BasicBlock()
     model.train()
     
 
@@ -194,7 +193,6 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         image = Variable(image).to(device, non_blocking=True) 
         
         B = image.size(0)
-        torch.autograd.set_detect_anomaly(True)
         # First branch of the siamese network
         imgs_out, auds_out = model(image.float(), spec.float(), args, mode='train')
         
@@ -343,8 +341,9 @@ def validate(val_loader, model, criterion, device, epoch, args):
 
             loss_cl = infoNCE_loss(imgs_out,auds_out, args)
 
-            img_embs_all.append(imgs_out)
-            aud_embs_all.append(auds_out)
+            if args.cross_modal_freq != -1 and (epoch % args.cross_modal_freq) == 0:
+                img_embs_all.append(imgs_out)
+                aud_embs_all.append(auds_out)
 
             losses.update(loss_cl.item(), B)
            
@@ -384,43 +383,45 @@ def validate(val_loader, model, criterion, device, epoch, args):
                             wandb.log({"val_video": wandb.Video(video_dir, caption=f"Epoch {epoch}"), "epoch": epoch})
                             print(f" - Time elapsed for uploading the video to wandb: {time.time() - t_upload_video:.2f}")
 
-    imgs_out_all = torch.cat(img_embs_all)
-    auds_out_all = torch.cat(aud_embs_all)
+    if args.cross_modal_freq != -1 and (epoch % args.cross_modal_freq) == 0:
+        imgs_out_all = torch.cat(img_embs_all)
+        auds_out_all = torch.cat(aud_embs_all)
 
-    sims = similarity_matrix_bxb(imgs_out_all,auds_out_all)
-    
-    recalls    = topk_accuracies(sims, [1,5,10])
-    A_r10 = recalls["A_r10"]
-    A_r5  = recalls["A_r5"]
-    A_r1  = recalls["A_r1"]
-    I_r10   = recalls["I_r10"]
-    I_r5    = recalls["I_r5"]
-    I_r1    = recalls["I_r1"]
-       
-    if args.use_wandb:
-        wandb.log({
-            "val_loss": losses.avg,
-            "epoch": epoch,
-            "A->V R@10": A_r10,
-            "A->V R@5": A_r5,
-            "A->V R@1": A_r1,
-            "V->A R@10": I_r10,
-            "V->A R@5": I_r5,
-            "V->A R@1": I_r1
-        })
+        sims = similarity_matrix_bxb(imgs_out_all,auds_out_all)
+        
+        recalls    = topk_accuracies(sims, [1,5,10])
+        A_r10 = recalls["A_r10"]
+        A_r5  = recalls["A_r5"]
+        A_r1  = recalls["A_r1"]
+        I_r10   = recalls["I_r10"]
+        I_r5    = recalls["I_r5"]
+        I_r1    = recalls["I_r1"]
+        
+        if args.use_wandb:
+            wandb.log({
+                "val_loss": losses.avg,
+                "epoch": epoch,
+                "A->V R@10": A_r10,
+                "A->V R@5": A_r5,
+                "A->V R@1": A_r1,
+                "V->A R@10": I_r10,
+                "V->A R@5": I_r5,
+                "V->A R@1": I_r1
+            })
 
-    N_examples= len(val_loader)
+        N_examples= len(val_loader)
 
     print('Epoch: [{0}]\t Eval '
           'Loss: {loss.avg:.4f}  \t T-epoch: {t:.2f} \t'
           .format(epoch, loss=losses, t=time.time()-tic))
     
-    print(' * Audio R@10 {A_r10:.3f} Image R@10 {I_r10:.3f} over {N:d} validation pairs'
-        .format(A_r10=A_r10, I_r10=I_r10, N=N_examples), flush=True)
-    print(' * Audio R@5 {A_r5:.3f} Image R@5 {I_r5:.3f} over {N:d} validation pairs'
-        .format(A_r5=A_r5, I_r5=I_r5, N=N_examples), flush=True)
-    print(' * Audio R@1 {A_r1:.3f} Image R@1 {I_r1:.3f} over {N:d} validation pairs'
-        .format(A_r1=A_r1, I_r1=I_r1, N=N_examples), flush=True)
+    if args.cross_modal_freq != -1 and (epoch % args.cross_modal_freq) == 0:
+        print(' * Audio R@10 {A_r10:.3f} Image R@10 {I_r10:.3f} over {N:d} validation pairs'
+            .format(A_r10=A_r10, I_r10=I_r10, N=N_examples), flush=True)
+        print(' * Audio R@5 {A_r5:.3f} Image R@5 {I_r5:.3f} over {N:d} validation pairs'
+            .format(A_r5=A_r5, I_r5=I_r5, N=N_examples), flush=True)
+        print(' * Audio R@1 {A_r1:.3f} Image R@1 {I_r1:.3f} over {N:d} validation pairs'
+            .format(A_r1=A_r1, I_r1=I_r1, N=N_examples), flush=True)
     
     return losses.avg, 0, 0
 

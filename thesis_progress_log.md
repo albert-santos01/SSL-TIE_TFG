@@ -1171,3 +1171,154 @@ Things I could do for tomorrow:
 - Start writing the thesis
 - ADE20k??
 - DINOiser???
+
+### 03/04
+Unfortunately, all the jobs failed because they couldn't make the sims matrix for the validation. Given that we managed to do the 1000 x 1000 sims matrix in the cpu without any problem, we set the embeddings to the cpu like DAVENet
+New Jobs:
+- `153477` - lr1e-3-2ly-B128-SISA-T84-t10 honestly it shouldn't be t10
+- `153478` - lr1e-4-2ly-B128-SISA-T84
+- `153479` - lr1e-5-2ly-B128-SISA-T84
+
+It seems that it doesn't have a dramatic effect at the first epoch. The loss is not oscillating significantly differently
+
+
+#### Reunion:
+- Ja os he passat algunes inferencies, la veritat que res a comentar, el que vaig dir al slack
+
+- He ja posat en pràctica el testeig dels models de manera quantitativa, el crossmodal per tots el models. Hi ha codi per fer-ho, Vaig començar per top 5 
+
+Report results:
+| Model Name                                              | Epoch |   Loss   | Acc A→V | Acc V→A |
+|--------------------------------------------------------|-------|---------|---------|---------|
+| SSL_TIE_PlacesAudio_lr1e-5-2ly-B128-SISA               | 100.0 | 5.398741 | 0.275202 | 0.183468 |
+| SSL_TIE_PlacesAudio_lr1e-5-2ly-B128-MISA               | 100.0 | 4.528646 | 0.270161 | 0.232863 |
+| SSL_TIE_PlacesAudio_lr1e-5-2ly-B256-MISA               | 100.0 | 4.520318 | 0.257056 | 0.221774 |
+| SSL_TIE_PlacesAudio-lr1e-5-2ly-B128-SISA-1GPUS-wV      |  13.0 | 3.928914 | 0.287298 | 0.215726 |
+| SSL_TIE_PlacesAudio_lr1e-3-2ly-B128-SISA               |  39.0 | 3.465736 | 0.156250 | 0.156250 |
+| SSL_TIE_PlacesAudio_lr1e-4-2ly-B32-MISA                | 100.0 | 3.465736 | 0.156250 | 0.156250 |
+| SSL_TIE_PlacesAudio_lr1e-5-2ly-B32-MISA                | 100.0 | 3.315941 | 0.478831 | 0.439516 |
+
+Però els resultats em semblaven boníssims. (Approach Batch size)
+- Explicar si encaixa el meu retrieval, que seguramente
+
+Aleshores fer tota la Validation sim matrix i per top 1,5,10
+
+| Model Name                                              | Epoch |   Loss   | A_r10   | A_r5    | A_r1    | I_r10   | I_r5    | I_r1    |
+|--------------------------------------------------------|-------|---------|---------|---------|---------|---------|---------|---------|
+| SSL_TIE_PlacesAudio_lr1e-5-2ly-B128-SISA               | 100.0 | 5.398741 | 0.011089 | 0.006048 | 0.001008 | 0.030242 | 0.014113 | 0.001008 |
+| SSL_TIE_PlacesAudio_lr1e-5-2ly-B128-MISA               | 100.0 | 4.528646 | 0.014113 | 0.008065 | 0.001008 | 0.035282 | 0.019153 | 0.003024 |
+| SSL_TIE_PlacesAudio_lr1e-5-2ly-B256-MISA               | 100.0 | 4.520318 | 0.017137 | 0.012097 | 0.004032 | 0.025202 | 0.014113 | 0.003024 |
+| SSL_TIE_PlacesAudio-lr1e-5-2ly-B128-SISA-1GPUS-wV      |  13.0 | 3.928914 | 0.019153 | 0.008065 | 0.002016 | 0.030242 | 0.016129 | 0.004032 |
+| SSL_TIE_PlacesAudio_lr1e-3-2ly-B128-SISA               |  39.0 | 3.465736 | 0.010081 | 0.005040 | 0.001008 | 0.010081 | 0.005040 | 0.001008 |
+| SSL_TIE_PlacesAudio_lr1e-4-2ly-B32-MISA                | 100.0 | 3.465736 | 0.010081 | 0.005040 | 0.001008 | 0.010081 | 0.005040 | 0.001008 |
+| SSL_TIE_PlacesAudio_lr1e-5-2ly-B32-MISA                | 100.0 | 3.315941 | 0.074597 | 0.048387 | 0.009073 | 0.084677 | 0.063508 | 0.014113 |
+
+- Implementat al train pel cluster:
+    1. El validation topk
+    2. Afegir audio al video del wandb
+    3. Afegir freq pel video uploading
+
+- Comprovat per trainings al subset que m'ha deixat per 2 hores
+
+- És interessant veure l'overfitting del subset?
+
+- Després d'estudiar debuguejant la implementació del codi de la resnet.
+    - Stride 2, no maxpooling
+    - Es pot evitar amb un flag
+    - Nova T dim 84 no 42
+
+- Els 3 jobs de 10 hores, d'ahir a la nit not AssocGrpBillingMinutes
+
+- Van petar tots per la GPU al fer la sims validation
+
+ja aquest matí
+- La envio a la cpu, i ara funciona and 3 new jobs lr
+- No efecte dramatic al primer epoch
+
+- Acabo de ficar SISA_2_MISA
+
+Coses que vull fer next:
+- Fer un estudi dels gradients?
+- Do the same spectrograms as Harwarth et al. 2018 ()
+- Do the code for LVS
+- Do the code for siamese
+- Add time_regularization
+
+- Start writing the thesis
+- ADE20k??
+- DINOiser???
+
+- Preprocessar 
+- Imprimir els gradients 
+
+- Provar només amb el frame del mig i llavors utilitzar la loss del ssltie, hauriem de tindre  losses mes grans que 1e-10
+
+#### After reunion:
+We started implementing the code for processing the audios like DAVENet. However, we noticed the following things:
+- The input spectrogram is 2048 
+- The spectrogram is truncated if its bigger or zeropadded if it's lower. Before, we used to repeat the audio to get the 10 secs.
+- The output shape with big_temp_dim is `torch.Size([16, 512, 5, 256])` thus let's stride with 2 
+
+### 07/04/2025
+So this weekend we did things but im putting here the update that I did to Xavier and Gloria at Slack.
+    Hola Bon Dia!
+    Os faig un update del cap de setmana.
+
+    Com que no em semblava just que em facturin per 32 o 64 CPUs  quan només utilitzo 4,  doncs he estat investigant si podia demanar només 4. Malauradament no és pot. És una configuració impossible, perquè cada node amb GPU ve restrictament amb 32 CPUs i no es pot escollir cuantes vols. Això es pot veure en el següent link How to request GPUs - HPC CSUC. En canvi, haig d'investigar més i contactar a support perquè encara que utilitzi 32 em sembla que em facturen per 64 CPUs, cosa que vol dir que només podria fer 16 entrenaments complets ja que si em deixen 50.000 hores i un entrenament és aproximadament 2 dies doncs 50.000/(48*64) = 16,27 entrenaments de 100 epochs. Llavors ara vaig amb molt de compte per no exhaurir la quota.
+
+    També he comprovat que el clúster té un comand que informa el consum i el que et queda:
+    [asantos@login2 ~]$ consum
+    +-----------------------------------------------------------------------+
+    |                        CSUC HPC Service: consum                       |
+    |                      UCs consumed by user asantos                     |
+    |                     from 2025-01-01 to 2026-01-01                     |
+    +-----------------------------------------------------------------------+
+    |  Account                   asantos            Group         Assigned  |
+    +-----------------------------------------------------------------------+
+    |  upftfg03_low                  0.0              0.0                0  |
+    |  upftfg03_normal           50591.5          50591.5           100000  |
+    +-----------------------------------------------------------------------+
+
+    Com veieu m'han proporcionat unes altres 50.000 hores i volia agrair-vos moltíssim que m'hàgiu demanat més recursos. Ara tinc molta cura  del meu ús, em comprometo a ser molt més responsable del que faig i demano disculpes per no haver-ho fet abans.
+
+    Sobre el nou approach de la dimensionalitat temporal de l'esprectrograma, haig de comentar que Harwarth ho fa diferent al paper:
+    - El seu input no són 40 bandes Mel i 1024 de temporal si no (40, 2048) per audio de 10 segons
+    - En canvi, donat aquest input sí que té sentit que ell fagi un últim maxpooling. En total fa 4 per tindre una reducció per 16 obtenint un Output de 128. Os recordeu que qüestionàvem  aquest últim maxpooling? Clar és que no tenia sentit si el seu input era de 1024 i obtenint 64 com a dimensió temporal. Aleshores amb això, el encoder que hi ha al seu codi és més comprensible.
+    
+    Doncs bueno tot això em vaig donar compte al implementar el seu processament. Vaig intentar fer un entrenament treient el nostre últim maxpooling obtenint un output de [256], simplement perquè em vaig oblidar de treure el flag, però haig de dir que va petar al primer epoch per raons de memoria quan intentava fer el crossmodal retrieval, perquè la matriu a calcular és gegant en aquest nou approach.
+    
+    Ahir a la nit vaig llençar nous entrenaments fent l'última reducció (Output de [Batch = 128, C = 1024, , T = 128]) amb els tres diferents learning rates demanant una curta sessió de computació i vaig obtindre lo següent que adjunto a la  primera imatge:
+    
+    - EL MODEL PER FI APRÈN SENSE FER OVERFITTING!!!!! Com os podriéu imaginar estic de felicitat absoluta hahaha. Podem confirmar que el model no era capaç d'aprendre amb embedding final de 42 i amb un de 128 sí que pot. Estic molt content perquè ha sigut una solució que prové d'entendre el problema i no d'un error de codi, cosa que encara vull confirmar al 100%.
+    
+    - Com podeu veure a la imatge el model aprèn amb un lr de 1e-4 i 1e-5. El model amb 1e-3, li vaig posar un temps limit molt curt, de dues hores i mitja pq ja suponia que no anava aprendre. Això ho puc confirmar a la segona imatge que adjunto que mostra que amb un lr de 1e-3 només oscil·lava en el quart decimal en el loss/step del trainloader.
+    
+    Una cosa que ara haig de considerar amb cura és que el temps per epoch ha augmentat moltíssim, os mostro això a la tercera imatge:
+    - El primer epoch triga 1 hora 40 minuts com a mitja
+    - Els demés trigan 50 mins com a molt.
+    - Això vol dir que el model entrenat amb 100 epochs triga  84,2 hores   o sigui 3 dies i mig. Però clar el que em preocupa ara és que només tenim 50.000/(84,2*64) = 9.28 entrenaments sencers.
+    
+    Amb aquesta nova informació jo proposo que evitem fer el crossmodal retrieval per reduir el temps, la podria fer en local. Ja miraré si hi ha alguna cosa que puc fer per reduir més el temps per epoch, com per exemple els vídeos.
+    
+    Que el model ja estigui aprenent a generalitzar és un gran esdeveniment i això marca un nou rumb amb el que hàviem proposat el divendres passat, Jo proposo lo següent:
+    1- Comprovar que de veritat el consum del csuc em considera que utilitzo 32 cpus i no 64
+    2- Intentar reduir el temps per epoch
+    3- Continuar l'entrenament de lr 1-4 amb SISA per veure quan fa overfitting
+    4- Començar l'ablation study:
+        1. "Currículum learning" (SISA to MISA), no sé si fer el canvi per un cert nombre de steps a dins del train loader o al primer epoch. Hauria de buscar literatura d'això.
+        2. Afegir el background com a negative (LVS)
+        3. Afegir la siamese
+        4. Afegir la regularització en el temps.
+        5. ... coses com la temperatura o el batch size?
+    
+    Bueno ara estic molt content perquè per fi hi ha alguna cosa de progrés, igualment no canto victòria pero volia agraïr-vos de nou la solicitud de més recursos al clúster.
+    
+    Ja em direu que opineu. Molta sort a la Índia Xavi!!
+
+TO do today:
+1. Comprovar que de veritat el consum del csuc em considera que utilitzo 32 cpus i no 64 [Done]
+    The formula is easy as UCs charged = AllocCPUs * Elapsed * Conversion factor [2.1875]
+2. Intentar reduir el temps per epoch:
+    This could simply be an easier train loading and avoid doing the crossmodal retrieval
+3. Continue the training of 1e-4
+4. Look for literature of Curriculum learning

@@ -47,13 +47,15 @@ def get_arguments():
     parser.add_argument('--val_video_freq', default=1,type=int, help="Freq for creating the video validation")
 
     parser.add_argument("--big_temp_dim", action='store_true',help="Do last max pooling or not to obtain more temporal resolution")
-    parser.set_defaults(big_temp_dim=True)
+    parser.set_defaults(big_temp_dim=False)
 
     parser.add_argument('--SISA_2_MISA_step', default=0, type=int, help="Threshold to Change to MISA at certain step of the first epoch")
     parser.add_argument('--SISA_2_MISA_epoch', default=0,type=int, help="Threshold to Change to MISA at certain epoch")
 
     parser.add_argument('--spec_DAVENet', action='store_true', help= "Load the audios as DAVENet configuration")
     parser.set_defaults(spec_DAVENet=False)
+    parser.add_argument('--print_embeds', action='store_true', help= "Load the audios as DAVENet configuration")
+    parser.set_defaults(print_embeds=True)
 
     #
     

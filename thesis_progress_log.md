@@ -1319,6 +1319,22 @@ TO do today:
 1. Comprovar que de veritat el consum del csuc em considera que utilitzo 32 cpus i no 64 [Done]
     The formula is easy as UCs charged = AllocCPUs * Elapsed * Conversion factor [2.1875]
 2. Intentar reduir el temps per epoch:
-    This could simply be an easier train loading and avoid doing the crossmodal retrieval
-3. Continue the training of 1e-4
+    This could simply be an easier train loading and avoid doing the crossmodal retrieval [Code_changed]
+3. Continue the training of 1e-4 
 4. Look for literature of Curriculum learning
+
+Point 2: I decided that I'm only going to give the Frame, Spectrogram and Audiopath in order to have a more efficient train loader
+Also the cross_modal_retrieval evaluation is done by a set freq, SET to -1 whenever we don't want to do it any longer.
+
+Point 3:
+We added some error raisers to handle resuming better, Copilot confirmed us that ``model_without_dp.load_state_dict()`` will indeed update the weights to `model`, thus, we are alledgely safe.
+
+`set_path` function needs a roadmap. Therefore:
+1. The weights will be indeed in the folder for the links_path. 
+        We could also use the weights stored at scratch but it's difficult to acces due to the JobID
+
+2. exp_path will all be in a new scratch folder, because we cannot write the previous folder again
+3. New json, this one needs like a marker to identify it as a resuming, actually is jobid dependent
+
+Now about to throw the resume
+The model has resumed the training :)

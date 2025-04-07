@@ -16,6 +16,7 @@ import subprocess
 import os
 import wandb
 from PIL import Image
+from datetime import datetime, timedelta
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -966,8 +967,112 @@ def upload_file_to_cluster(local_path, remote_path):
         print(f"Error uploading {local_path}: {result.stderr}")
 
 
+# To Download the weights of a model with its json
+class ModelOutputRetriever:
+    def __init__(self,model_name,local_dir):
+        self.model_name = model_name
+        self.model_dir = os.path.join("models",model_name)
+        self.local_dir = local_dir
+        #Check if the folder exists
+        if not folder_exists_in_cluster(self.model_dir):
+            raise Exception(f"Model {model_name} doesn't exist among models")
+        
+        # - if more than one ask the user which one if not use that one
+        filenames = list_files_in_remote_folder(self.model_dir)
+        if len(filenames) > 1:
+            request_string = f"There's more than one json for {model_name}\nChoose one:\n"
+            for idx, flname in enumerate(filenames):
+                file_string = f"[{str(idx)}] {flname}\n"
+                request_string = request_string + file_string
+            idx_to_process = int(input(request_string))
 
+            print(f"Using [{str(idx_to_process)}] {filenames[idx_to_process]}")
 
+        else:
+            idx_to_process = 0
+            print(f"Using {filenames[0]}")
+        
+        #check if json is in local if not download
+        json_file = filenames[idx_to_process]
+        if not self.check_in_local(json_file):
+            download_remote_file(
+                remote_path = os.path.join(self.model_dir,json_file),
+                local_path = os.path.join(self.local_dir,json_file)
+                ) 
+        self.json_file = os.path.join(self.local_dir,json_file)
+        
+        with open(self.json_file, 'r') as f:
+            self.data_json = json.load(f)
+
+        self.check_if_available()
+        
+
+    def check_in_local(self,file):
+        return os.path.exists(os.path.join(self.local_dir,file))
+            
+
+    def get_number_of_epochs(self):
+        return len(self.data_json) - 1
+    
+    def get_parameters(self):
+        return self.data_json['parameters']
+    
+    def get_weigths_link(self, epoch):
+        return self.data_json[str(epoch)]['weights_link']
+    
+    def download_weigths(self, epoch):
+        weigths_link = self.get_weigths_link(epoch)
+        weigths_name = self.model_name + "-" + weigths_link.split('/')[-1]
+        if not self.check_in_local(weigths_name):
+            print("Downloading weigths")
+            download_remote_file(
+                remote_path = weigths_link,
+                local_path = os.path.join(self.local_dir,weigths_name)
+            )
+        else:
+            print("Weights already in local dir")
+        return os.path.join(self.local_dir,weigths_name)
+    
+    def get_video_link(self, epoch):
+        return self.data_json[str(epoch)]['video_link']
+    
+    def download_video(self, epoch, path_2_save = None):
+        video_link = self.get_video_link(epoch)
+        sample_idx = self.data_json["parameters"]["val_video_idx"]
+        video_name = f'mm_{self.model_name}-epoch{epoch}_val_{sample_idx}.mp4'
+        if not self.check_in_local(video_name):
+            print("Downloading video")
+            download_remote_file(
+                remote_path = video_link,
+                local_path = os.path.join(path_2_save if path_2_save else self.local_dir
+                                          ,video_name)
+            )
+        else:
+            print("Video already in local dir")
+        return os.path.join(self.local_dir,video_name)
+    
+    def check_if_available(self):
+        """
+        Check if 7 seven days have passed since the time creation
+        """
+        # Parse the time_creation string into a datetime object
+        creation_time = datetime.strptime(self.data_json["parameters"]["time_creation"], "%Y-%m-%d %H:%M")
+
+        # Check if 7 days have passed since the creation time
+        if datetime.now() - creation_time > timedelta(days=7):
+            print("The model is no longer available.")
+            return False
+        else:
+            print("The model is still available. Creation time: ",creation_time)
+            time_difference = timedelta(days=7) - (datetime.now() - creation_time)
+            days = time_difference.days
+            hours = time_difference.seconds // 3600
+
+            if days > 0:
+                print(f"The model will be available for {days} more days.")
+            else:
+                print(f"The model will be available for {hours} more hours.")
+            return True
 
 
 

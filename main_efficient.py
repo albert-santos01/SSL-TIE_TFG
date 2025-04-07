@@ -56,7 +56,7 @@ from utils.util import topk_accuracies, similarity_matrix_bxb, \
       vis_loader, prepare_device, vis_heatmap_bbox, tensor2img, \
       sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss
 from utils.tf_equivariance_loss import TfEquivarianceLoss
-import multiprocessing
+
 from datetime import datetime
 
 
@@ -104,7 +104,7 @@ def set_path(args):
         # exp_path = 'ckpts/{args.exp_name}'.format(args=args)
                                 
         # Check if we are using the cluster 
-        if multiprocessing.cpu_count() > 16: 
+        if len(os.sched_getaffinity(0)) > 16: 
             exp_path = os.path.expandvars('$SCRATCH/{args.exp_name}'.format(args=args))
         else:
             exp_path = 'garbage/{args.exp_name}'.format(args=args)
@@ -198,6 +198,11 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         # First branch of the siamese network
         imgs_out, auds_out = model(image.float(), spec.float(), args, mode='train')
         
+        if args.print_embeds:
+            print(f"-----------IN imgs: {image.shape}, -> OUT {imgs_out.shape}")
+            print(f"-----------IN auds: {spec.shape}, -> OUT {auds_out.shape}")
+            args.print_embeds = False
+                    
         if args.SISA_2_MISA_step !=0 and args.SISA_2_MISA_step >= idx:
             print(f" - Changing from {args.simtype} to MISA at step {idx}, considering batch size {B} and {len(train_loader)} batches")
             args.simtype = 'MISA'
@@ -251,10 +256,6 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         if args.siamese:
             losses_cl_ts.update(loss_cl_ts.item(), B) 
             losses_ts.update(loss_ts.item(), B) 
-
-
-        
-
         
         
         optim.zero_grad()
@@ -553,7 +554,12 @@ def main(args):
 
     args.gpus = list(range(torch.cuda.device_count()))
     print('Using GPU:', args.gpus)
-    print('Number of CPUs:', multiprocessing.cpu_count())
+    print('Number of of cores allocated:',len(os.sched_getaffinity(0)))
+    print(f"{os.sched_getaffinity(0)} CPU cores that job {args.job_id} is allowed to run on")  # Will show the CPU cores your job is allowed to run on
+
+    if len(os.sched_getaffinity(0)) > 32:
+        raise ValueError("Too many CPUs. Restart to use fewer CPUs for a more efficient run.")
+    
 
     if args.debug_code:
         print('Debugging code')

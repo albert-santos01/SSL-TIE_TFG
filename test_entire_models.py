@@ -292,6 +292,8 @@ def main(args):
         raise RuntimeError("The model is no longer available for testing. It has exceeded the 7-day availability period.")
 
     #Dataset
+    args.img_path, args.model_path, args.exp_path = set_path(args)
+    
     val_dataset = PlacesAudio(args.placesAudio + 'val.json', args,mode='val')
     
     print("Creating Data loaders with %d workers" % args.n_threads)

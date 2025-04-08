@@ -179,7 +179,7 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     
     loss_debug = 0
 
-    if args.SISA_2_MISA_epoch != 0 and args.SISA_2_MISA_epoch >= epoch:
+    if args.SISA_2_MISA_epoch != 0 and args.SISA_2_MISA_epoch <= epoch:
         print(f" - Changing from {args.simtype} to MISA at epoch {epoch} -")
         args.simtype = 'MISA'
         args.SISA_2_MISA_epoch = 0
@@ -199,10 +199,10 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
             print(f"-----------IN auds: {spec.shape}, -> OUT {auds_out.shape}")
             args.print_embeds = False
                     
-        if args.SISA_2_MISA_step !=0 and args.SISA_2_MISA_step >= idx:
+        if args.SISA_2_MISA_step !=0 and args.SISA_2_MISA_step <= idx:
             print(f" - Changing from {args.simtype} to MISA at step {idx}, considering batch size {B} and {len(train_loader)} batches")
             args.simtype = 'MISA'
-            args.SISA_2_MISA_epoch = 0
+            args.SISA_2_MISA_step = 0
             
 
         loss_cl = infoNCE_loss(imgs_out,auds_out, args)        

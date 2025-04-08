@@ -805,7 +805,18 @@ def main(args):
         args.epochs_data = update_json_file(args.links_path, args.epochs_data, epoch, "weights_link", filename)
 
         torch.cuda.empty_cache()
+        last_lr = optim.param_groups[0]['lr']
+        # print('Current learning rate: %f' % last_lr)
         scheduler.step(val_loss) if args.scheduler == "ReduceLROnPlateau" else scheduler.step()
+        
+        if args.scheduler == "ReduceLROnPlateau":
+            if optim.param_groups[0]['lr'] != last_lr:
+                print(f"Learning rate changed from {last_lr} to {optim.param_groups[0]['lr']}")
+
+        if args.use_wandb:
+            wandb.log({"epoch": epoch, "learning_rate": last_lr})
+
+
     
     print('Training from Epoch %d --> Epoch %d finished' % (args.start_epoch, args.epochs ))
     sys.exit(0)

@@ -1338,3 +1338,87 @@ We added some error raisers to handle resuming better, Copilot confirmed us that
 
 Now about to throw the resume
 The model has resumed the training :)
+
+### 08/04/2025
+
+The training of the model was resumed without any issues However we noticed the following:
+- The model is at  epoch 33 and it's about to overfit
+- We don't have an scheduler set
+- The validation is uploaded to the wandb every cross_modal_freq
+- The Cross Modal retrieval is very costly, better do it in local
+
+Now we are going to resume the training but first, we need to set an scheduler
+
+TO DO today:
+1. Get a great scheduler
+2. Search for literature for MISA to SISA
+3. LVS
+4. Siamese
+5. Time regularisation
+
+#### Weight Decay
+Something that we noticed is that the weight decay parameter (args) will affect the Adam Optimizer and the value that it's set by default is `1e-4`, thus, we should take into account this value because it affects the model something like:
+    w = w - lr * (gradient + weight_decay * w)
+In adam optimizer it works as the L2 penalty
+
+`Point 1`
+Maybe we could use the Multi Step Scheduler but changing its milestones for [30,70,90] gamma = 0.1
+Or use the ReduceOnPlateu
+
+The model already overfitts at epoch 25, see plot at [Experiments Val loss](experiments.ipynb#Plot-Validation-Loss)
+
+Therefore either we avoid stop training this model or we continue
+
+I decided to not continue this model because the overfitting is big
+
+`Point 2 look for SISA to MISA literature`
+T. Afouras et al. (2020) mentions it but he  doesn't say when
+we did at the half of the first epoch
+
+We threw the job
+
+Next we should print the gradients
+
+And do a code that doesn`t use UC to validation of the model
+    - An idea can be do another project that is only about validation (WandB)
+
+`CODE For testing models`
+1. Open json file
+- Init WandB
+2. Say how many epochs you have
+3. For every model in the json
+    1. Get the weights
+    2. Load the weights
+    3. Validate
+    4. Upload everything to wandb
+
+The code is done but needs to be debugged because:
+Traceback (most recent call last):
+  File "test_entire_models.py", line 314, in <module>
+    main(args)
+  File "test_entire_models.py", line 307, in main
+    validate(val_loader,model,None,device,int(epoch),args)
+  File "test_entire_models.py", line 143, in validate
+    imgs_out, auds_out = model(image.float(), spec.float(), args, mode='val')
+ValueError: too many values to unpack (expected 2)
+Traceback (most recent call last):
+  File "test_entire_models.py", line 314, in <module>
+    main(args)
+  File "test_entire_models.py", line 307, in main
+    validate(val_loader,model,None,device,int(epoch),args)
+  File "test_entire_models.py", line 143, in validate
+    imgs_out, auds_out = model(image.float(), spec.float(), args, mode='val')
+ValueError: too many values to unpack (expected 2)
+
+Things done today:
+1. Put the scheduler
+2. Find out Weight decay
+3. Analyzed last resuming
+4. Fixed SISA to MISA
+5. Threw Job with this
+6. created a script to test all the epochs of a model
+
+Tomorrow, first debug, then, we should start the LVS and Siamese and if we can the time regularization
+
+
+

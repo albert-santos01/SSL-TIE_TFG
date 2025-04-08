@@ -408,6 +408,12 @@ def validate(val_loader, model, criterion, device, epoch, args):
             })
 
         N_examples= len(val_loader)
+    else:
+        if args.use_wandb:
+            wandb.log({
+                "val_loss": losses.avg,
+                "epoch": epoch
+            })
 
     print('Epoch: [{0}]\t Eval '
           'Loss: {loss.avg:.4f}  \t T-epoch: {t:.2f} \t'

@@ -59,6 +59,8 @@ def get_arguments():
     parser.add_argument('--print_embeds', action='store_true', help= "Load the audios as DAVENet configuration")
     parser.set_defaults(print_embeds=True)
 
+    parser.add_argument('--scheduler', default=None, type=str, help="Scheduler [ReduceLROnPlateau | MultiStepLR]")
+
     #
     
     parser.add_argument('--trainset', default='VGGSS', type=str, help="Training dataset")

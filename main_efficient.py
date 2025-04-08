@@ -621,7 +621,13 @@ def main(args):
 
     criterion = nn.CrossEntropyLoss()
     optim = Adam(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
-    scheduler = lr_scheduler.MultiStepLR(optim, milestones=[300,700,900], gamma=0.1) # Stupid bc it will never affect (100 epoch max)
+    # scheduler = lr_scheduler.MultiStepLR(optim, milestones=[300,700,900], gamma=0.1) # Stupid bc it will never affect (100 epoch max)
+    
+    if args.scheduler == 'MultiStepLR':
+        scheduler = lr_scheduler.MultiStepLR(optim, milestones=[30,70,90], gamma=0.1)
+    elif args.scheduler == 'ReduceLROnPlateau':
+        scheduler = lr_scheduler.ReduceLROnPlateau(optim, mode='min', factor=0.1, patience=5, verbose=True)
+    
     args.iteration = 1
     
     if args.test:
@@ -799,7 +805,7 @@ def main(args):
         args.epochs_data = update_json_file(args.links_path, args.epochs_data, epoch, "weights_link", filename)
 
         torch.cuda.empty_cache()
-        scheduler.step()
+        scheduler.step(val_loss) if args.scheduler == "ReduceLROnPlateau" else scheduler.step()
     
     print('Training from Epoch %d --> Epoch %d finished' % (args.start_epoch, args.epochs ))
     sys.exit(0)

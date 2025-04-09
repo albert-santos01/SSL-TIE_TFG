@@ -63,6 +63,32 @@ from datetime import datetime, timedelta
 from utils.utils import save_checkpoint, AverageMeter,  \
      Logger, neq_load_customized, ProgressMeter
 
+def get_total_memory_gb():
+    with open('/proc/meminfo', 'r') as f:
+        meminfo = f.read()
+    for line in meminfo.split('\n'):
+        if "MemTotal" in line:
+            mem_kb = int(line.split()[1])
+            return mem_kb / 1024 / 1024  # Convert to GB
+    return None
+
+def get_physical_cores():
+    cores = set()
+    with open('/proc/cpuinfo', 'r') as f:
+        cpuinfo = f.read()
+    for block in cpuinfo.strip().split('\n\n'):
+        core_id = None
+        for line in block.split('\n'):
+            if line.startswith("core id"):
+                core_id = int(line.split(":")[1])
+            elif line.startswith("physical id"):
+                physical_id = int(line.split(":")[1])
+        if core_id is not None:
+            cores.add((physical_id, core_id))
+    return len(cores)
+
+
+
 def is_running_on_cluster():
     # Check for common cluster environment variables
     cluster_env_vars = ['SLURM_JOB_ID', 'PBS_JOBID', 'SGE_TASK_ID']
@@ -115,6 +141,20 @@ def check_if_available(data_json):
             return True
         
 
+def tensor_memory_MB(tensor, name):
+    """
+    Returns the memory size of a tensor in megabytes (MB).
+    
+    Args:
+        tensor (torch.Tensor): The tensor to inspect.
+    
+    Returns:
+        float: Size in MB.
+    """
+    size_bytes = tensor.nelement() * tensor.element_size()
+    size_mb = size_bytes / (1024 ** 2)
+    print(f"Size of {name}: {size_mb:.2f} MB")
+    return size_mb
 
 def validate(val_loader, model, criterion, device, epoch, args):
     batch_time = AverageMeter()
@@ -182,18 +222,20 @@ def validate(val_loader, model, criterion, device, epoch, args):
                         print(f" - Time elapsed for creating the video: {time.time() - t_make_video:.2f}")
                         video_gen = True
 
-                        # Save link to the json file
-                        args.epochs_data = update_json_file(args.links_path, args.epochs_data, epoch, "video_link", video_dir)
 
                         if args.use_wandb:
                             t_upload_video = time.time()
                             wandb.log({"val_video": wandb.Video(video_dir, caption=f"Epoch {epoch}"), "epoch": epoch})
                             print(f" - Time elapsed for uploading the video to wandb: {time.time() - t_upload_video:.2f}")
+    print('Epoch: [{0}]\t Eval '
+          'Loss: {loss.avg:.4f}  \t T-epoch: {t:.2f} \t'
+          .format(epoch, loss=losses, t=time.time()-tic))
 
     if args.cross_modal_freq != -1 and (epoch % args.cross_modal_freq) == 0:
         imgs_out_all = torch.cat(img_embs_all)
         auds_out_all = torch.cat(aud_embs_all)
 
+        print("\tAbout to calculate the sims")
         sims = similarity_matrix_bxb(imgs_out_all,auds_out_all)
         
         recalls    = topk_accuracies(sims, [1,5,10])
@@ -216,7 +258,7 @@ def validate(val_loader, model, criterion, device, epoch, args):
                 "V->A R@1": I_r1
             })
 
-        N_examples= len(val_loader)
+        N_examples= len(val_loader)*B
     else:
         if args.use_wandb:
             wandb.log({
@@ -224,9 +266,6 @@ def validate(val_loader, model, criterion, device, epoch, args):
                 "epoch": epoch
             })
 
-    print('Epoch: [{0}]\t Eval '
-          'Loss: {loss.avg:.4f}  \t T-epoch: {t:.2f} \t'
-          .format(epoch, loss=losses, t=time.time()-tic))
     
     if args.cross_modal_freq != -1 and (epoch % args.cross_modal_freq) == 0:
         print(' * Audio R@10 {A_r10:.3f} Image R@10 {I_r10:.3f} over {N:d} validation pairs'
@@ -236,11 +275,13 @@ def validate(val_loader, model, criterion, device, epoch, args):
         print(' * Audio R@1 {A_r1:.3f} Image R@1 {I_r1:.3f} over {N:d} validation pairs'
             .format(A_r1=A_r1, I_r1=I_r1, N=N_examples), flush=True)
     
+    print(f"Time elapsed in total{time.time()-tic}")
+
     return losses.avg, 0, 0
 
 
 def main(args):
-    print("-----------------Testing experiment {args.exp}-----------------")
+    print(f"-----------------Testing experiment {args.exp_name}-----------------")
     
     print("Is cuda available",torch.cuda.is_available()) 
 
@@ -253,7 +294,12 @@ def main(args):
     print('Using GPU:', args.gpus)
     print('Number of of cores allocated:',len(os.sched_getaffinity(0)))
     print(f"{os.sched_getaffinity(0)} CPU cores that job {args.job_id} is allowed to run on")  # Will show the CPU cores your job is allowed to run on
+    
+    total_ram = get_total_memory_gb()
+    cores = get_physical_cores()
 
+    print(f"Total Memory: {total_ram:.2f} GB")
+    print(f"Physical Cores: {cores}")
     # wandb initialization
     if args.use_wandb:
         config = dict(
@@ -279,6 +325,9 @@ def main(args):
     np.random.seed(args.seed)
     random.seed(args.seed)
 
+    # Check if the JSON file exists
+    if not os.path.exists(args.links_path):
+        raise FileNotFoundError(f"The JSON file at {args.links_path} does not exist.")
     #Open json 
     with open(args.links_path, 'r') as f:
         epochs_data = json.load(f)

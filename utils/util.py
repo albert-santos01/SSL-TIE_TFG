@@ -490,6 +490,20 @@ def volumemap_sim(volume_matrix, simtype='MISA'):
     assert(volume_matrix.dim() == 2)
     return volume_matrix
 
+def tensor_memory_MB(tensor, name):
+    """
+    Returns the memory size of a tensor in megabytes (MB).
+    
+    Args:
+        tensor (torch.Tensor): The tensor to inspect.
+    
+    Returns:
+        float: Size in MB.
+    """
+    size_bytes = tensor.nelement() * tensor.element_size()
+    size_mb = size_bytes / (1024 ** 2)
+    print(f"Size of {name}: {size_mb:.2f} MB")
+    return size_mb
 
 def similarity_matrix_bxb(img_outs, aud_outs,temp=0.07,simtype='MISA'):
     """

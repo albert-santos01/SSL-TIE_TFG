@@ -63,6 +63,8 @@ from datetime import datetime, timedelta
 from utils.utils import save_checkpoint, AverageMeter,  \
      Logger, neq_load_customized, ProgressMeter
 
+import psutil
+
 def get_total_memory_gb():
     with open('/proc/meminfo', 'r') as f:
         meminfo = f.read()
@@ -71,6 +73,14 @@ def get_total_memory_gb():
             mem_kb = int(line.split()[1])
             return mem_kb / 1024 / 1024  # Convert to GB
     return None
+
+
+def get_total_memory_gb_2():
+    """
+    Returns the total RAM memory in GB using psutil.
+    """
+    mem = psutil.virtual_memory()
+    return mem.total / (1024 ** 3)  # Convert bytes to GB
 
 def get_physical_cores():
     cores = set()
@@ -294,12 +304,7 @@ def main(args):
     print('Using GPU:', args.gpus)
     print('Number of of cores allocated:',len(os.sched_getaffinity(0)))
     print(f"{os.sched_getaffinity(0)} CPU cores that job {args.job_id} is allowed to run on")  # Will show the CPU cores your job is allowed to run on
-    
-    total_ram = get_total_memory_gb()
-    cores = get_physical_cores()
-
-    print(f"Total Memory: {total_ram:.2f} GB")
-    print(f"Physical Cores: {cores}")
+    print(f"Total RAM memory: {len(os.sched_getaffinity(0))*15.9} GB")
     # wandb initialization
     if args.use_wandb:
         config = dict(

@@ -1,5 +1,5 @@
 python -u test_entire_models.py \
-    --batch_size 128 \
+    --batch_size 200 \
     --n_threads 4 \
     --learning_rate 1e-4 \
     --weight_decay 1e-4 \
@@ -15,5 +15,6 @@ python -u test_entire_models.py \
     --cross_modal_freq 1 \
     --placesAudio $DATA/PlacesAudio_400k_distro/metadata/ \
     --simtype MISA \
+    --order_3_tensor \
     --links_path /home/asantos/models/SSL_TIE_PlacesAudio-lr1e-4-B128-SISA-SdT128/links_resume_SSL_TIE_PlacesAudio-lr1e-4-B128-SISA-SdT128_158491.json
     

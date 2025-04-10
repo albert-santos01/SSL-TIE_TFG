@@ -137,8 +137,12 @@ def set_path(args):
                 "batch_size": args.batch_size,
                 "simtype":  args.simtype,
                 "temperature": args.temperature,
-                "val_video_idx": args.val_video_idx
-            }
+                "val_video_idx": args.val_video_idx,
+                "args": {
+                    k: v for k, v in vars(args).items()
+                }
+            },
+            
         }
         args.epochs_data = epochs_data
 

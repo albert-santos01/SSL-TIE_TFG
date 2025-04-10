@@ -1444,5 +1444,189 @@ She also suggest to run a model switching S2M at epoch 20. We could run it but I
 I think that we lost the model S2Ms1/2 tragic
 
 
+### 10/04/2025
+1- Puedo acceder a los weights de S2Me20? Sí
+2- Acceder al que entreno con SISA y ver parametros args[Todo normal]
+2- Test no sube el val loss :( 
+3- Algo ha pasado con el entreno [TODO parace igual]
+4- Meter literal que todos los args en dentro del json [Hecho]
+5- volver a entrenar el S2Ms05 [Hecho]
+6- Cada vez que queramos hacer test, TENEMOS NUEVO exp_name joder 
+7- Hacer que pueda hacer un retrieval del path del audio
+8- Enviar docs a carolina
+
+
+
+Since we lost the model, we are attempting to compute it again. Additionally, the trial of S2Me20 that we launched somehow didn't work, and trying to compute S2Ms1571 didn't work either. 
+The only thing that was different in the configuration is that val_video_freq was set to 2 instead of 5.
+
+After putting 5 again it worked! so let's check why it happened
+9- I have detached every tensor to make sure it doesn't affect the computation, val_video_freq
+10- Make a solution that it will save the model of the last epoch at the main folder and the best models
+
+We have
+- links_path : It's home but pointing to the json
+- exp_path : scratch folder and it has all the models 
+- img_path : takes you img folder
+- model_path : takes you to model folder path
+.. We added home_models_path: Its home/models/exp_name/job_id
+[Done] It has been correctly implemented, just waiting for the first epoch [Correct]
+
+Fix again `Test entire Models`
+- Wandb test:
+    - Cross modal
+    - Val loss
+[Itworks]
+- exp_new and we don't need new folders in models
+
+
+After seeing the results of the cross modal retrieval we have state the following:
+`model SISA whole training`
+- Even that the model's val_loss is in a stationary point the crossmodal results are increasing
+    - The val_loss is not the reason to stop the training
+        - ReduceLROnPlateu can loose the oportunity for better quantitavely results
+
+WE NEED THE CROSSMODAL RESULT ON LIVE
+Cons:
+    - We can't reproduce the results while training
+        We should ``PARALELIZE``
+
+Question can we send a job to calculate the crossmodal?
+Idea:
+    Normal training
+        - Validation sends a job to calculate the matrix
+        - This job sends the results either to:
+            - Wandb (somehow connect it?)
+            - google excel online
+            - to update rewriting csv file (cluster) -> Send it to local -> Me in local execute script to see the results
+                question: Can we send to local easily? 
+                We know that we can download the csv easily
+
+Thing to consider:
+Can we ease the calculation of the matrix? 
+Shall I invest time to think about it?
+
+- Quantize?
+- Multiprocessing calculation?
+- Depth wise? vector blabla?
+
+
+### Reunion for Tomorrow
+Gràcies pel nous recursos
+
+Contexte:
+- Implementar Harwarth processing:
+    - No concordança amb el paper
+    - Input [B,1,40,2048] -> Out [B,C=1024,F=3,T=128] 2^4 reduccion 4 reduccions
+    - zero pad fins 10 secs, different
+
+- SdT128 entrena amb lr1e-4
+    - Yo crec que lr 1e-3 no entrena (No oscila train/step)
+    - Imatges de slack
+    - T-epoch 50 mins
+        - Fora cross modal
+        - Train loader més eficient
+        - (New) Tindre els spectrogrames processats offline? Gotta measure t-spec_process
+        - Video no afecta ni 2 segons
+
+- Ara T-epoch 1300 secs 21.6 mins back to normal
+    100 epochs -> 35 hores, però aturar sempre abans pq overfitting a epoch 30 maybe
+
+- 32 cpus sempre, 1 dia costa (24*32*2.19)=1682 UCs tinc disponibles ara(45000 UCs) 27 dies/possibles ablation...
+
+- Resumit Full SISA SdT128
+    - El val_loss va sortir malament llavors en local(update cada 10)
+    - El crossmodal cada (10), res insightful
+    - Overfitting a 33
+    - Videos molt dolents però amb sentit
+        - decidir d'aturar
+
+- weight decay adam (1e-4) 
+        w = w - lr * (gradient + weight_decay * w)
+In adam optimizer it works as the L2 penalty
+
+- Schedulers:
+    - Multistep [30,70,90] gamma = 0.1 ssltie mal
+    - ReduceOnPlateau [patience=5]
+
+- SISA to MISA literature
+    - No hi ha res clar
+    - Vaig pensar que early training Afouras (Calentar els gradients, 3k steps i to MISA)
+    - És diu que aixó speeds up the training, potser malentés amb curriculum learning
+    - De nou a demostrar però epoch 9 MISA es torna millor que SISA, potser interessant fer S2Me9
+    - Interessant fer full MISA
+
+- Llançament de S2M 160205 (lost)
+    - Baixa més el val_loss
+    - Videos possiblement molt bons al epoch 20 
+        - Wandb l'audio dels video potser tenen delay
+    - Després al epoch ``47`` baixada de Lr
+        - Ha millorat el val loss 
+    - despres al ``56`` canvi again pq puja
+    - Aturem pq videos fa coses rares
+Perdut
+    - Mai intentem accedir a $SCRATCH while training
+
+- Codi per testejar models en local
+    - Local millor no pq descarregar weights tota l'estona
+    - Pero Cross modal fora del training
+
+    - Algoritme:
+        1. Carrega model
+        2. FA video
+        3. calcula el val loss
+        4. amb tots els embeddings fa la matriu sim
+        5. Ho puja tot a un proyecte de wandb per testejar al model
+    
+    - Funciona al Login node. Peligro
+        48 cpus, fa el codi molt bé, no et cargan
+
+    - Problema:
+        - Crossmodal retrieval matriu són 97Gb
+        - Matar-se per llençar la opció més barata, Només necessito 1 Cpu
+        - Fat 12 cpus 190Gb
+        - Peta amb la resta
+        - 17 mins per Epoch
+        - 8hores x 12 cpus = 102 UCs
+        - HEM de buscar una solució 
+
+- VAig llençar S2Me20 -> No entrena
+    - Probar de cop S2Ms1/2 -> No entrena
+    - crisis, val_video_freq 5 diff 
+    - detach everything
+    - it works even with val_video_freq 2
+    - But joder watch out 
+
+- Ara guardo cada last epoch al  $HOME per si urgencia de testejar model quan estigui entrenant
+
+Testeig
+- Només tinc el Full SISA
+    - Videos horribles
+    - Es va decidir d'aturar pels videos i val_loss stationary
+    - Resultats molt bons per cross modal retrieval
+        - Comparables amb Harwarth
+        - Resultats continuen creixent tot i que overfitting
+        - Hauríem de resumir? Noves raons pel qual no aturar?
+
+COSES a FER:
+- NECESSITEM CROSS MODAL LIVE
+    - Ha de ser paralelitzat, no podem enderrerir el training
+    - Llençar job en el codi? Potser em complico la vida, però tinc idees
+- Escoltar opinió
+- Ens trenquem el cap per fer computació més fàcil? Dedicar temps això?
+- Ideas:
+    - Quantize
+    - Multiprocessing
+    - Depth wise
+
+La resta lo de sempre:
+- LVS
+- Siamese
+- Time regularization
+- Weight decay
+- Batch Size
+- 
+
+
 
 

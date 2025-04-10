@@ -360,13 +360,22 @@ def validate(val_loader, model, criterion, device, epoch, args):
                         idx_B   =  args.val_video_idx % B 
                         img_emb = imgs_out[idx_B]
                         aud_emb = auds_out[idx_B]
-                        audio = audio_path[idx_B]
-                        
+
+                        img_emb = img_emb.detach()
+                        aud_emb = aud_emb.detach()
+
+                        audio = audio_path[idx_B]                        
 
                         matchmap = computeMatchmap(img_emb,aud_emb)
                         frame   = image[idx_B]
+                        spec_input = spec[idx_B]
 
-                        mgv = MatchmapVideoGenerator(model,device,frame,spec[idx_B],args,matchmap)
+                        matchmap = matchmap.detach()
+                        frame   = frame.detach()
+                        spec_input = spec_input.detach()
+                        
+
+                        mgv = MatchmapVideoGenerator(model,device,frame,spec_input,args,matchmap)
 
                         video_dir = os.path.join(args.img_path,"val_videos")
                         if not os.path.exists(video_dir):       

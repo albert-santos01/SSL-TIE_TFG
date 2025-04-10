@@ -1420,5 +1420,29 @@ Things done today:
 
 Tomorrow, first debug, then, we should start the LVS and Siamese and if we can the time regularization
 
+### 09/04/2025
+The model is amaaazing
+But right now it seems that it's overfitting. I don't know if we should stop the traning because it seems that validation got stationary even when the train loss is decreasing
+
+Let's finish the code for the testing because we need that before taking a decision. 
+The problem was that --3_order_tensor was not activated and it was un packing incorrectly the outputs of the model
+
+Now, we have the problem that how the code is written, only the cluster can run it because it has to access the weights from the scratch folder. Hence, it is not loading them, meaning that it's easier.
+
+All of this plus we should do the whole computation in a login node (48 cpus available (for free)), we are considering using the `std` partition with ``1 batch_size 1 gpu and 0 workers``. Nevertheless, this leads to an alledge 8 hours computation (8 UCs) compared to a whole training (48 days = 3363 UCs).
+Nevermind, it ran out of MEM, let's try to use the fat partition given that we have 15 GB available, despite that, I'm still quite skeptical. It also ran out of memory hahah so we asked for 2 and 1 worker
+
+53138.0 antes de fat 
+53141.2 
+
+At the end we finished testing the model. What we need is to use the fat partition with 12 cpus. It takes 17 min per epoch.
+
+Gloria inspired me doing a curriculum learning, where we combine normal training with LVS
+
+She also suggest to run a model switching S2M at epoch 20. We could run it but I'm quite skeptical because it's already better at epoch 9 MISA compared to SISA. Let's run it anyways and send her the video.
+
+I think that we lost the model S2Ms1/2 tragic
+
+
 
 

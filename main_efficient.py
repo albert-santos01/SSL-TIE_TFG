@@ -120,7 +120,13 @@ def set_path(args):
         os.makedirs(exp_path)
     else:
         print('The experiment folder already exists')
-        
+    
+
+    # Home models
+    home_models_path = os.path.expandvars('$HOME/models/{args.exp_name}/job_{args.job_id}'.format(args=args))
+    if not os.path.exists(home_models_path):
+        os.makedirs(home_models_path)
+    
     
     # Load existing data if JSON file exists, else start with an empty dictionary
     if os.path.exists(links_path):
@@ -154,7 +160,7 @@ def set_path(args):
         os.makedirs(img_path)
     if not os.path.exists(model_path): 
         os.makedirs(model_path)
-    return img_path, model_path, exp_path, links_path
+    return img_path, model_path, exp_path, links_path, home_models_path
 
 
 def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
@@ -622,7 +628,7 @@ def main(args):
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
-    args.img_path, args.model_path, args.exp_path, args.links_path = set_path(args)
+    args.img_path, args.model_path, args.exp_path, args.links_path, args.home_models_path = set_path(args)
     
     model = AVENet(args)
     model.to(device)
@@ -794,9 +800,16 @@ def main(args):
             
             
             #It will save the model and also the best one if it's considered
+            
+            # SAVING ALL at $SCRATCH
             save_checkpoint(save_dict, is_best, 1, 
                 filename=os.path.join(args.model_path, 'epoch%d.pth.tar' % epoch), 
                 keep_all=True)
+            
+            # SAVING last one at $HOME
+            save_checkpoint(save_dict, is_best, 1,
+                filename=os.path.join(args.home_models_path, 'epoch%d.pth.tar' % epoch),
+                keep_all=False)
 
         
         else:
@@ -811,6 +824,10 @@ def main(args):
             save_checkpoint(save_dict, is_best=0, gap=1, 
                 filename=os.path.join(args.model_path, 'epoch%d.pth.tar' % epoch), 
                 keep_all=True)
+            
+            save_checkpoint(save_dict, is_best, 1,
+                filename=os.path.join(args.home_models_path, 'epoch%d.pth.tar' % epoch),
+                keep_all=False)
 
        
         # Update the json with the new weights

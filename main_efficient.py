@@ -623,7 +623,7 @@ def main(args):
         print('Using CPU')
 
     best_acc = 0
-    best_miou = 0
+    best_miou = 100
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -783,8 +783,8 @@ def main(args):
             val_loss, _, mean_ciou = validate(val_loader, model, criterion, device, epoch, args)
 
             if args.order_3_tensor: #This val_loss will be considered as the metric from now
-                is_best = val_loss > best_miou               
-                best_miou = max(val_loss, best_miou)                
+                is_best = val_loss < best_miou               
+                best_miou = min(val_loss, best_miou)                
             else:
                 is_best = mean_ciou > best_miou
                 best_miou = max(mean_ciou, best_miou)
@@ -840,7 +840,7 @@ def main(args):
 
         if args.use_wandb:
             wandb.log({"epoch": epoch, "learning_rate": last_lr})
-            
+
         scheduler.step(val_loss) if args.scheduler == "ReduceLROnPlateau" else scheduler.step()
         
         if args.scheduler == "ReduceLROnPlateau":

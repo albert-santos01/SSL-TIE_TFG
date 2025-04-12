@@ -109,9 +109,9 @@ def is_running_on_cluster():
 def set_path(args):
     # Create the experiment folder
     if is_running_on_cluster(): 
-        exp_path = os.path.expandvars('$SCRATCH/{args.exp_name}'.format(args=args))
+        exp_path = os.path.expandvars('$SCRATCH/TEST_{args.exp_name}'.format(args=args))
     else:
-        exp_path = 'garbage/{args.exp_name}'.format(args=args) #if not using the cluster
+        exp_path = 'garbage/TEST_{args.exp_name}'.format(args=args) #if not using the cluster
 
     if not os.path.exists(exp_path):
         os.makedirs(exp_path)
@@ -176,7 +176,7 @@ def validate(val_loader, model, criterion, device, epoch, args):
     
 
     tic = time.time()
-    save_dir = os.path.join(args.img_path, "val_imgs", str(epoch)) 
+    save_dir = os.path.join(args.img_path, "test_imgs", str(epoch)) 
 
     model.eval()
     
@@ -333,7 +333,8 @@ def main(args):
     # Check if the JSON file exists
     if not os.path.exists(args.links_path):
         raise FileNotFoundError(f"The JSON file at {args.links_path} does not exist.")
-    #Open json 
+    
+    #Open json ----------------------------------- EVERYTHING IS IN THE JSON
     with open(args.links_path, 'r') as f:
         epochs_data = json.load(f)
 
@@ -357,6 +358,10 @@ def main(args):
 
     #Test every model in the json
     for epoch in keys[1:]:
+        if args.SISA_2_MISA_epoch != 0 and args.SISA_2_MISA_epoch <= int(epoch):
+            print(f" - Changing from {args.simtype} to MISA at epoch {epoch} -")
+            args.simtype = 'MISA'
+            args.SISA_2_MISA_epoch = 0
         model, device = load_model(epochs_data[epoch]['weights_link'],args)
         validate(val_loader,model,None,device,int(epoch),args)
 

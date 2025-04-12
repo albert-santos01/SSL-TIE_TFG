@@ -1524,7 +1524,7 @@ Contexte:
     - Yo crec que lr 1e-3 no entrena (No oscila train/step)
     - Imatges de slack
     - T-epoch 50 mins
-        - Fora cross modal
+        - Fora cross modal retrieval
         - Train loader més eficient
         - (New) Tindre els spectrogrames processats offline? Gotta measure t-spec_process
         - Video no afecta ni 2 segons
@@ -1619,6 +1619,11 @@ COSES a FER:
     - Multiprocessing
     - Depth wise
 
+- Llençar full misa
+- Llençar S2Me10
+
+Negative audio noise regularització
+vector de m 128 per treure e
 La resta lo de sempre:
 - LVS
 - Siamese
@@ -1627,6 +1632,28 @@ La resta lo de sempre:
 - Batch Size
 - 
 
+### 11/04/2025
+We already have the results for `S2Ms1571` again, thus  we should start testing this model
+    We stopped this one because its learning rate is already really low
+Regarding `S2Me20`, still running, and it's important to note that at the switch:
+    There has been a significant change at `val_loss` whereas at the ``training loss`` is relatively the same
+
+    Still running, its val loss is way higher than S2Ms1/2 but it is still decreasing and the lr is still 1e-4
+
+After the reunion, we shouldn't matter that much about the cross modal retrieval because we can start writing while it's computing:
+    We still have a code to write (LVS, Siamese, Negative audio) and the memoir
+
+Now: Retrieve some videos of the two models
+    - first decide which epoch for model S2Ms1571: 40 and 20   
+
+The videos are not very good
+- The model's inference appears to be ahead of the audio. However it is true that it learned the cross modal alignment
+- Mabye the way that we create the video is not representative of the model's real knowledge
+
+- we added the ags.sisa to misa at test_models
+We should add a way to stop the training whenever the lr decreased so much!
 
 
+### 12/01/2025
+Just to add, I created a linux command to calculate how many days i have left
 

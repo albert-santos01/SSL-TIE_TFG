@@ -1,8 +1,11 @@
 import cv2
+import librosa
 import numpy as np
 import shutil
 import json
+import sys
 
+import scipy
 import torch
 import torch.nn.functional as F
 from torchvision import transforms
@@ -17,7 +20,7 @@ import os
 import wandb
 from PIL import Image
 from datetime import datetime, timedelta
-
+from opts import get_arguments
 class AverageMeter(object):
     """Computes and stores the average and current value"""
     def __init__(self):
@@ -641,6 +644,10 @@ class GetSampleFromJson:
         self.audio_base_path = data_json['audio_base_path']
         self._init_transforms()
         self.AmplitudeToDB = audio_T.AmplitudeToDB()
+        self.audio_conf = {}
+        self.windows = {'hamming': scipy.signal.hamming,
+        'hann': scipy.signal.hann, 'blackman': scipy.signal.blackman,
+           'bartlett': scipy.signal.bartlett}
     
     def _init_transforms(self):
         mean = [0.485, 0.456, 0.406]
@@ -694,7 +701,16 @@ class GetSampleFromJson:
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    def load_audio_to_spec(self, audio_path):
+    def load_audio_to_spec(self, audio_path, processing_type="DAVENet"):
+        if processing_type == "DAVENet":
+            audio = self.load_audio_DAVENet(audio_path)
+        elif processing_type == "SSL-TIE":
+            audio = self.load_audio_SSLTIE(audio_path)
+        else:
+            raise ValueError(f"Unknown processing type: {processing_type}")
+        return audio
+    
+    def load_audio_SSLTIE(self, audio_path):
         samples, samplerate = torchaudio.load(audio_path)
 
         if samples.shape[1] < samplerate * 10:
@@ -713,6 +729,64 @@ class GetSampleFromJson:
         spectrogram =  self.AmplitudeToDB(spectrogram)
         return spectrogram
     
+    def preemphasis(self,signal,coeff=0.97):
+        """perform preemphasis on the input signal.
+        
+        :param signal: The signal to filter.
+        :param coeff: The preemphasis coefficient. 0 is none, default 0.97.
+        :returns: the filtered signal.
+        """    
+        return np.append(signal[0],signal[1:]-coeff*signal[:-1])
+    
+    def load_audio_DAVENet(self, file):
+        audio_type = self.audio_conf.get('audio_type', 'melspectrogram')
+        if audio_type not in ['melspectrogram', 'spectrogram']:
+            raise ValueError('Invalid audio_type specified in audio_conf. Must be one of [melspectrogram, spectrogram]')
+        preemph_coef = self.audio_conf.get('preemph_coef', 0.97)
+        sample_rate = self.audio_conf.get('sample_rate', 16000)
+        window_size = self.audio_conf.get('window_size', 0.025)
+        window_stride = self.audio_conf.get('window_stride', 0.01)
+        window_type = self.audio_conf.get('window_type', 'hamming')
+        num_mel_bins = self.audio_conf.get('num_mel_bins', 40)
+        target_length = self.audio_conf.get('target_length', 2048)
+        use_raw_length = self.audio_conf.get('use_raw_length', False)
+        padval = self.audio_conf.get('padval', 0)
+        fmin = self.audio_conf.get('fmin', 20)
+        n_fft = self.audio_conf.get('n_fft', int(sample_rate * window_size))
+        win_length = int(sample_rate * window_size)
+        hop_length = int(sample_rate * window_stride)
+
+        # load audio, subtract DC, preemphasis
+        y, sr = librosa.load(file,sr=sample_rate)
+        
+        if y.size == 0:
+            y = np.zeros(200)
+        y = y - y.mean()
+        y = self.preemphasis(y, preemph_coef)
+        # compute mel spectrogram
+        stft = librosa.stft(y, n_fft=n_fft, hop_length=hop_length,
+            win_length=win_length,
+            window=self.windows.get(window_type, self.windows['hamming']))
+        spec = np.abs(stft)**2
+        if audio_type == 'melspectrogram':
+            mel_basis = librosa.filters.mel(sr, n_fft, n_mels=num_mel_bins, fmin=fmin)
+            melspec = np.dot(mel_basis, spec)
+            logspec = librosa.power_to_db(melspec, ref=np.max)
+        elif audio_type == 'spectrogram':
+            logspec = librosa.power_to_db(spec, ref=np.max)
+        n_frames = logspec.shape[1]
+        if use_raw_length:
+            target_length = n_frames
+        p = target_length - n_frames
+        if p > 0:
+            logspec = np.pad(logspec, ((0,0),(0,p)), 'constant',
+                constant_values=(padval,padval))
+        elif p < 0:
+            logspec = logspec[:,0:p]
+            n_frames = target_length
+        logspec = torch.FloatTensor(logspec)
+        # return logspec, n_frames
+        return logspec.unsqueeze(0)
    
 
 class MatchmapVideoGenerator:
@@ -840,7 +914,7 @@ class MatchmapVideoGenerator:
             "ffmpeg",
             "-y",  # Overwrite output files without asking
             "-i", video_path,  # Input video
-            "-stream_loop", "-1",  # Infinite loop for audio
+            # "-stream_loop", "-1",  # Infinite loop for audio
             "-i", audio_path,  # Input audio
             "-map", "0:v",  # Video stream from first input
             "-map", "1:a",  # Audio stream from second input
@@ -1087,6 +1161,58 @@ class ModelOutputRetriever:
             else:
                 print(f"The model will be available for {hours} more hours.")
             return True
+    
+def inference_maker(model_name, epoch, split, sample_idx, local_dir_saving):
+    inference_name = f'mm_{model_name}-epoch{epoch}_{split}_{sample_idx}.mp4'
+    inference_local_path = os.path.join(local_dir_saving, "inferences", str(sample_idx), inference_name)
 
+    if os.path.exists(inference_local_path):
+        print("Inference already in local")
+        return inference_local_path
+    print("Proceed to make the inference")
 
+    # Ensure the directory for inference_local_path exists
+    inference_dir = os.path.dirname(inference_local_path)
+    if not os.path.exists(inference_dir):
+        os.makedirs(inference_dir)
 
+    model_weights_path = os.path.join(local_dir_saving,
+                                      f'{model_name}-epoch{epoch}.pth.tar')
+    
+    # Simulate command-line arguments for loading the model
+    sys.argv = ['script_name', '--order_3_tensor', '--simtype', 'MISA']
+
+    args = get_arguments()
+
+    #Check if the model exist in local
+    if os.path.exists(model_weights_path):
+        print("The model is in local")
+        model, device = load_model(model_weights_path,args)
+        print("-Model Loaded")
+    else:
+        #Request if user wants to download the model
+        user_input = input("Model weights not found locally. Do you want to download them? (yes/no): ").strip().lower()
+        if user_input == "yes":
+            mor = ModelOutputRetriever(model_name, local_dir_saving)
+            model_weights_path = mor.download_weigths(epoch)
+            model, device = load_model(model_weights_path, args)
+            print("-Model Loaded")
+        else:
+            raise FileNotFoundError("Model weights are required but not available locally.")
+    
+    #Check if the audio and the image of the sample index is in local
+    json_file = f'garbage/{split}.json'
+    if os.path.exists(json_file):
+        gs = GetSampleFromJson(json_file, local_dir_saving)
+        img_local_path, aud_local_path = gs.download_sample(sample_idx)
+    else:
+        raise FileNotFoundError("json file not found for retrieving the samples")
+
+    img = gs.load_image(img_local_path)
+    spec = gs.load_audio_to_spec(aud_local_path)
+
+    mgv = MatchmapVideoGenerator(model, device, img, spec, args)
+    mgv.create_video_with_audio(inference_local_path, aud_local_path)
+    
+    
+    return inference_local_path

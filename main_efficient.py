@@ -837,14 +837,19 @@ def main(args):
         torch.cuda.empty_cache()
         last_lr = optim.param_groups[0]['lr']
         # print('Current learning rate: %f' % last_lr)
+
+        if args.use_wandb:
+            wandb.log({"epoch": epoch, "learning_rate": last_lr})
+            
         scheduler.step(val_loss) if args.scheduler == "ReduceLROnPlateau" else scheduler.step()
         
         if args.scheduler == "ReduceLROnPlateau":
             if optim.param_groups[0]['lr'] != last_lr:
                 print(f"Learning rate changed from {last_lr} to {optim.param_groups[0]['lr']}")
-
-        if args.use_wandb:
-            wandb.log({"epoch": epoch, "learning_rate": last_lr})
+                # Stop the training if the learning rate is too low
+                if optim.param_groups[0]['lr'] < 1e-5:
+                    print("Learning rate too low, stopping training")
+                    break
 
 
     

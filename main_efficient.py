@@ -767,10 +767,18 @@ def main(args):
             torch.cuda.empty_cache()
         start = time.time()
 
-        train_one_epoch(train_loader, model, criterion, optim, device, epoch, args)
-
+        train_loss, _ = train_one_epoch(train_loader, model, criterion, optim, device, epoch, args)
 
         print('Training time: %d seconds.' % (time.time() - start))
+
+        if args.stop_not_training: 
+            if epoch == args.start_epoch:
+                first_train_loss = train_loss
+            # If the model didn't improve at the third epoch
+            elif (first_train_loss - train_loss) < 0.3 and (epoch - args.start_epoch) >= 2:
+                print("Somehow the model is not learning, stopping the training")
+                break
+
         
         
         

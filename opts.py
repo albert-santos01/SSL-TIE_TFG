@@ -61,6 +61,9 @@ def get_arguments():
 
     parser.add_argument('--scheduler', default=None, type=str, help="Scheduler [ReduceLROnPlateau | MultiStepLR]")
 
+    parser.add_argument('--stop_not_training',action='store_true', help= "Stop the model if didn't improve by 3 decimals its training loss after 3 epochs")
+    parser.set_defaults(stop_not_training = True)
+
     #
     
     parser.add_argument('--trainset', default='VGGSS', type=str, help="Training dataset")

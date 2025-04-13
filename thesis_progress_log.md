@@ -1657,3 +1657,43 @@ We should add a way to stop the training whenever the lr decreased so much!
 ### 12/01/2025
 Just to add, I created a linux command to calculate how many days i have left
 
+We fixed the code of test in order to submit test S2MeE
+
+#### Then things to do:
+- We could throw the 
+    - S2Me10 [x]
+    - FullMISA to compare it with S2Ms [x]
+- Investigate the effect of lag audio
+- LVS
+- Reproduce DAVENet
+    This is very important since I'm not satisfied with the video result, even thought that we have almost better cross modal retrieval results... Therefore it would be nice to see the inferences of this model to compare.
+- Stop the training when the model decreased the lr[x]
+
+Training days remaining `25.2757` after today 23
+Considering the following experiments (lvs,siamese,time regularization and noise cancellation) They are 4 experiments and considering that they won't be succesful at the first trial, we suppose that we may need 7 days, making sure that we have a safe margin. Therefore we will still have 16 days left
+
+
+I really don't like the idea of using S2Me10 instead of 9 or eight. I'll wait for S2Me20 to show the val results at epoch 10, 30 mins
+
+So we throw first the Full MISA
+
+![Validation Loss at Epoch 10](./assets/val_loss_epoch10.png)
+The difference in loss in SISA is 0.11 lower than MISA
+
+We will throw it anyways: S2Me10 -> 23 days left
+
+#### LVS
+Since our code is not meant to be parellelized, we can make it more modular by doing the logits operation outside of the model. We could implement it at the InfoNCE loss
+
+### 13/04/2025
+Yesterday night we hang out and obviously we couldn't supppose a great productivity today
+Apparently, the model S2Me10 didn't learn and it stopped thanks to ReduceLROnPlateu early stopping
+
+fSISA managed to do it, this model does almost the same than S2Ms1571. About to be tested.
+
+Therefore, we introduced a new option to stop the training if the model didn't improve its training loss by 3 decimals after the third epoch. This approach will save computational resources.
+S2Me10 rerunning and fSISA testing
+
+WARNINNGGGGG!!!!!
+The folder of fSISA and S2Me10 don't exist so we lost the models, tomorrow first thing in the morning we have to ask to support what happened with our models.
+

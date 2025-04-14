@@ -1686,7 +1686,7 @@ We will throw it anyways: S2Me10 -> 23 days left
 Since our code is not meant to be parellelized, we can make it more modular by doing the logits operation outside of the model. We could implement it at the InfoNCE loss
 
 ### 13/04/2025
-Yesterday night we hang out and obviously we couldn't supppose a great productivity today
+Yesterday night we hang out and obviously we couldn't pretend a great productivity today
 Apparently, the model S2Me10 didn't learn and it stopped thanks to ReduceLROnPlateu early stopping
 
 fSISA managed to do it, this model does almost the same than S2Ms1571. About to be tested.
@@ -1696,4 +1696,45 @@ S2Me10 rerunning and fSISA testing
 
 WARNINNGGGGG!!!!!
 The folder of fSISA and S2Me10 don't exist so we lost the models, tomorrow first thing in the morning we have to ask to support what happened with our models.
+
+### 14/04/2025
+16 days left
+TO Do Today:
+1. Check folder scratch [x]
+    1. S2Me10 old and new [x]
+    2. And fMISA, (nope, it doesn't exist) [x]
+2. Contact support if they dont exist [x]
+--print the gradients...---
+3. LVS
+4. Reproduce Harwath (See if its feasible to do it in 1 day)
+5. Siamese
+
+S2Me10 succesfully finished, thus, we submit the testing of this model which stopped at epoch 46.
+Now the model is succesfully being tested
+
+Since we haven't yet checked the gradients we are about to do it!!!!!!!!!!
+The gradients are still really not that meaningful:
+- The gradients at the projection head are still smaller than the ones at the input, which is not normal.
+- The following runs we are going to log the mean, max, median, and min to see how they evolve by every step
+
+Now it is time to do the Lvs
+
+``LVS``
+A -> Sii  Paired images [B,1,H,W]
+A0 -> Sij Matrix all combs in batch [B,B,H,W]
+A0_ref -> Averaging the H,W dim [B,B]
+
+Pos -> Foreground [B,1,H,W]
+Neg -> Background [B,1,H,W]
+
+Pos_all -> Foreground of all combs [B,B,H,W]
+
+< Pos_all, A0 >  =  < mij, Sij> = (Pos_all * A0).view([B,B]).sum(-1) [B]
+
+sim = < mij, Sij>/|mij| All the foregrounds excluding i->i (those values are really low when done as logits)
+
+sim1 = < mii, Sii>/|mii| Foregrounds [B,1]?         ``Positives``
+sim2 = < 1 - mii, Sii>/|1-mii| Backgrounds [B,1]?   ``Hard Negatives``
+
+
 

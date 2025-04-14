@@ -1730,11 +1730,15 @@ Neg -> Background [B,1,H,W]
 Pos_all -> Foreground of all combs [B,B,H,W]
 
 < Pos_all, A0 >  =  < mij, Sij> = (Pos_all * A0).view([B,B]).sum(-1) [B]
+    (Pos_all * A0)  [B,B,H,W]
+    (Pos_all * A0).view([B,B],-1)   [B,B,H*W]
+    (Pos_all * A0).view([B,B],-1).sum(-1) [B,B]
 
 sim = < mij, Sij>/|mij| All the foregrounds excluding i->i (those values are really low when done as logits)
 
-sim1 = < mii, Sii>/|mii| Foregrounds [B,1]?         ``Positives``
-sim2 = < 1 - mii, Sii>/|1-mii| Backgrounds [B,1]?   ``Hard Negatives``
+sim1 = < mii, Sii>/|mii| Foregrounds [B,1]         ``Positives``
+sim2 = < 1 - mii, Sii>/|1-mii| Backgrounds [B,1]   ``Hard Negatives``
 
+logits = torch.cat((sim1,sim,sim2),1)/0.07  [B,1+1+B] Logits
 
 

@@ -1734,11 +1734,12 @@ Pos_all -> Foreground of all combs [B,B,H,W]
     (Pos_all * A0).view([B,B],-1)   [B,B,H*W]
     (Pos_all * A0).view([B,B],-1).sum(-1) [B,B]
 
-sim = < mij, Sij>/|mij| All the foregrounds excluding i->i (those values are really low when done as logits)
+sim = < mij, Sij>/|mij| All the foregrounds excluding i->i (those values are really low when done as logits) [B,B]
 
 sim1 = < mii, Sii>/|mii| Foregrounds [B,1]         ``Positives``
 sim2 = < 1 - mii, Sii>/|1-mii| Backgrounds [B,1]   ``Hard Negatives``
 
-logits = torch.cat((sim1,sim,sim2),1)/0.07  [B,1+1+B] Logits
+logits = torch.cat((sim1,sim,sim2),1)/0.07  [B,1+1+B] Logits 
 
+Since sim1 is a vector and its at the first position and considering a target of 0s the InfoNCEloss will be applied correctly
 

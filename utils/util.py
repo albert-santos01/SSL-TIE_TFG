@@ -12,6 +12,7 @@ from torchvision import transforms
 import torchaudio
 import torchaudio.transforms as audio_T
 from torch.autograd import Variable
+from torch import nn
 
 from models.model import AVENet
 import subprocess
@@ -526,7 +527,57 @@ def similarity_matrix_bxb(img_outs, aud_outs,temp=0.07,simtype='MISA'):
     return s_outs
 
 
+def infoNCE_loss_LVS(image_outputs, audio_outputs, args):
+    """
+        images_outputs (B x C x H x W) 
+        audio_outputs  (B x C x T)
+        Assumption: the channel dimension is already normalized
+        Returns the InfoNCE loss considering the background as a negative
+    """
+    B = image_outputs.shape[0]
+    epsilon  =  args.epsilon
+    epsilon2 = args.epsilon2
+    tau = 0.03
+    device = image_outputs.device
+    mask = ( 1 -100 * torch.eye(B,B)).to(device)
+
+    m = nn.Sigmoid()
+    # avgpool = nn.AdaptiveMaxPool2d((1, 1)) 
+
+    Sii = torch.einsum('bchw, bct -> bthw',image_outputs, audio_outputs).unsqueeze(1) # [B,1,T,H,W]
+    Sij = torch.einsum('bct, pchw -> bpthw', audio_outputs, image_outputs) # [B,B,T,H,W]
+    # Sij_avg = avgpool(Sij).view(B,B)  # [B,B]
+
+
+    Pos = m((Sii - epsilon)/tau)  # Positives [B,1,T,H,W]
+    if args.trimamp:
+        Pos2 = m((Sii - epsilon2)/tau)
+        Neg = 1 - Pos2
+    else:
+        Neg = 1 - Pos
+
+    Pos_all = m((Sij - epsilon)/tau) # Foregrounds Sij [B,B,T,H,W]
+    easyNegs = ((Pos_all * Sij).view(*Sij.shape[:2],-1).sum(-1) / Pos_all.view(*Pos_all.shape[:2],-1).sum(-1) ) * mask
+    sim = easyNegs #[B,B]
+
+    sim1 = (Pos * Sii).view(*Sii.shape[:2],-1).sum(-1) / (Pos.view(*Pos.shape[:2],-1).sum(-1)) # Pi Foregrounds Sii [B,1]
+    sim2 = (Neg * Sii).view(*Sii.shape[:2],-1).sum(-1) / (Neg.view(*Neg.shape[:2],-1).sum(-1)) # Hard negatives Backgrounds [B,1]
+
+    if args.Neg:
+        logits = torch.cat((sim1,sim,sim2),1)/args.temperature  #[B,B+2]
+    else:
+        logits = torch.cat((sim1,sim),1)/args.temperature
     
+    criterion = nn.CrossEntropyLoss()
+    target = torch.zeros(logits.shape[0]).to(device, non_blocking=True).long()
+    loss =  criterion(logits, target)
+
+    return loss
+
+    
+
+
+
 
 def infoNCE_loss(image_outputs, audio_outputs,args,return_S=False):
     """
@@ -535,6 +586,8 @@ def infoNCE_loss(image_outputs, audio_outputs,args,return_S=False):
         Assumption: the channel dimension is already normalized
         Returns the InfoNCE loss
     """
+    if args.LVS:
+        return infoNCE_loss_LVS(image_outputs,audio_outputs,args)
     if args.big_temp_dim:
         assert (audio_outputs.size(2) > 70)
 

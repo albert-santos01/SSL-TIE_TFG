@@ -550,18 +550,18 @@ def infoNCE_loss_LVS(image_outputs, audio_outputs, args):
 
 
     Pos = m((Sii - epsilon)/tau)  # Positives [B,1,T,H,W]
-    if args.trimamp:
+    if args.tri_map:
         Pos2 = m((Sii - epsilon2)/tau)
         Neg = 1 - Pos2
     else:
         Neg = 1 - Pos
 
     Pos_all = m((Sij - epsilon)/tau) # Foregrounds Sij [B,B,T,H,W]
-    easyNegs = ((Pos_all * Sij).view(*Sij.shape[:2],-1).sum(-1) / Pos_all.view(*Pos_all.shape[:2],-1).sum(-1) ) * mask
+    easyNegs = ((Pos_all * Sij).reshape(*Sij.shape[:2],-1).sum(-1) / Pos_all.reshape(*Pos_all.shape[:2],-1).sum(-1) ) * mask
     sim = easyNegs #[B,B]
 
-    sim1 = (Pos * Sii).view(*Sii.shape[:2],-1).sum(-1) / (Pos.view(*Pos.shape[:2],-1).sum(-1)) # Pi Foregrounds Sii [B,1]
-    sim2 = (Neg * Sii).view(*Sii.shape[:2],-1).sum(-1) / (Neg.view(*Neg.shape[:2],-1).sum(-1)) # Hard negatives Backgrounds [B,1]
+    sim1 = (Pos * Sii).reshape(*Sii.shape[:2],-1).sum(-1) / (Pos.reshape(*Pos.shape[:2],-1).sum(-1)) # Pi Foregrounds Sii [B,1]
+    sim2 = (Neg * Sii).reshape(*Sii.shape[:2],-1).sum(-1) / (Neg.reshape(*Neg.shape[:2],-1).sum(-1)) # Hard negatives Backgrounds [B,1]
 
     if args.Neg:
         logits = torch.cat((sim1,sim,sim2),1)/args.temperature  #[B,B+2]

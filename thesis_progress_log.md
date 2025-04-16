@@ -1666,7 +1666,7 @@ We fixed the code of test in order to submit test S2MeE
 - Investigate the effect of lag audio
 - LVS
 - Reproduce DAVENet
-    This is very important since I'm not satisfied with the video result, even thought that we have almost better cross modal retrieval results... Therefore it would be nice to see the inferences of this model to compare.
+    This is very important since I'm not satisfied with the video result, even though that we have almost better cross modal retrieval results... Therefore it would be nice to see the inferences of this model to compare.
 - Stop the training when the model decreased the lr[x]
 
 Training days remaining `25.2757` after today 23
@@ -1704,8 +1704,8 @@ TO Do Today:
     1. S2Me10 old and new [x]
     2. And fMISA, (nope, it doesn't exist) [x]
 2. Contact support if they dont exist [x]
---print the gradients...---
-3. LVS
+--print the gradients...---[x]
+3. LVS[x]
 4. Reproduce Harwath (See if its feasible to do it in 1 day)
 5. Siamese
 
@@ -1743,3 +1743,15 @@ logits = torch.cat((sim1,sim,sim2),1)/0.07  [B,1+1+B] Logits
 
 Since sim1 is a vector and its at the first position and considering a target of 0s the InfoNCEloss will be applied correctly
 
+### 15/04/2025
+
+The LVS technique is implemented at utils in order to a more modular code. In order to use it has to be called with --order_3_tensor
+To make a more readable slurm file we could turn --order_3_tensor and --spec_DAVENet since from now on they will be always called.
+
+Anyways, we are going to throw a model to be trained with this technique and logging the gradients to wandb. 
+
+Now reproduce the results of Harwarth
+1. Add Wandb
+2. Add folders
+3. Debug¿?
+4. Throw??

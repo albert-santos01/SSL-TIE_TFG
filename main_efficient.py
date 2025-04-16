@@ -767,6 +767,7 @@ def main(args):
     print('******************Training Args*************************')
 
     for epoch in range(args.start_epoch, args.epochs + 1 ):
+        tic = time.time()
         np.random.seed(epoch)
         random.seed(epoch)
         print('Epoch: %d/%d' % (epoch, args.epochs))
@@ -783,7 +784,7 @@ def main(args):
             if epoch == args.start_epoch:
                 first_train_loss = train_loss
             # If the model didn't improve at the third epoch
-            elif (first_train_loss - train_loss) < 0.3 and (epoch - args.start_epoch) >= 2:
+            elif (first_train_loss - train_loss) < 0.1 and (epoch - args.start_epoch) >= 2:
                 print("Somehow the model is not learning, stopping the training")
                 break
 
@@ -866,6 +867,9 @@ def main(args):
                 if optim.param_groups[0]['lr'] < 1e-5:
                     print("Learning rate too low, stopping training")
                     break
+        # Log the epoch metrics to wandb
+        if args.use_wandb:
+            wandb.log({"Ft-epoch": time.time()-tic, "epoch": epoch})
 
 
     

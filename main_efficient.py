@@ -266,7 +266,11 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         
         optim.zero_grad()
         loss.backward()
-            
+        # for name, param in model.named_parameters():
+        #         if param.grad is not None:
+        #             print(f"{name} - Mean: {param.grad.mean().item():.2e}, Max: {param.grad.max().item():.2e}, Min: {param.grad.min().item():.2e}, Median: {param.grad.median().item():.2e}")
+        
+        # raise Exception("STOP")
         if args.use_wandb and args.log_gradients:
             grad_stats = {}
             for name, param in model.named_parameters():

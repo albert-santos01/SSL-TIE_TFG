@@ -1755,3 +1755,54 @@ Now reproduce the results of Harwarth
 2. Add folders
 3. Debug¿?
 4. Throw??
+
+
+### 16/04/2025
+14 days left (We should start writing)
+
+Apparently, the job of LVS couldn't get passed the third epoch probably because of the --stop_not_training. We have to analyse how T-epoch was affected by LVS and by logging the gradients. 
+
+First try of todo todayyy:
+1. Check why LVS stopped[x]
+2. Analyze T-epoch[x]
+3. Analyze gradients[x]
+4. Analyze Loss[x]
+5. Throw again with all the new considerations[x]
+6. Send emails and sign offerletter[x]
+    - Answer also to CSUC [x]
+    - To Sandra: After a more thoughtful consideration here's my signed job offer[x]
+    - To SDG Group[x]
+7. Try to reproduce DAVENet
+    - Bear in mind that this is to see the inferences of DAVENet and to see it's training process
+    1. Add to wandb [Probably]
+    2. Set path for:
+        - Saving models
+        - Retrieve images
+        - How to access the dataset
+8. Start the plan for writing
+
+
+1-5 LVS job:
+- Indeed the model stopped bc of --stop_not_training
+- It seems that maybe it can go faster with a 1e-3, we could consider trying
+- It managed to do three epoch but not to decrease the 0.3 the validation loss
+    - We should consider now a new threshold for the stopping criteria[Changedto0.1]
+- I had a "crisis" you name it but I was concerned by those models that will not longer be available, thus, I had to check how much space we have at DATA just to store them there if its not much big of a deal
+- The T-epoch was around 1280 segs, we could say that logging the gradients didn't affect at all
+    - What happens is that we didn't thought that T-epoch  is only for the training, and that we need a new one for the full epoch process, including the validation
+- 3. Honestly there's something really wrong about the gradients, they are still very big at the input head rather than the projection. [gradients report](https://wandb.ai/albert-santos01-universitat-pompeu-fabra/VG_SSL-TIE/reports/Gradient-check--VmlldzoxMjMxNzM3Mw) At this link you can find how the gradients have evolved by  3 epochs, therefore we could genuinely throw the lvs completely
+- 4. Sorry but the loss is completely fine, the only bad thing is thatf from the first to the 3rd epoch it decreased 0.28, the train loss, thus, it didn't continue. Now we have changed the threshold to 0.1
+    - At the val_loss it seems that this one has more slope
+    - Its decreasing start compared to S2Me10 is 5k step instead of 3k, it's slope at the trainloss/step is much more slower
+
+So we throw again from start LVS and one for 3,4 epochs with the 
+They are running, `170191 tr-3_LVS` and `170189 tr_LVS`
+The one with lr 1e-3 didn't work. Thankfully that we set it to train for only 4 peochs but the stop-not-training stopped it before
+
+SO its TIME FOR DAVENeeeeeeeeeeeet :((()))
+We are going to write the  notes in the same repo
+We saw that you can track the models parameters and gradients with wandb.watch at the very beginning 
+
+#### Next tasks:
+- Add Wandb.watch to our repo
+- check wandb today

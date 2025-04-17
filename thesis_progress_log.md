@@ -1773,7 +1773,7 @@ First try of todo todayyy:
     - To Sandra: After a more thoughtful consideration here's my signed job offer[x]
     - To SDG Group[x]
 7. Try to reproduce DAVENet
-    - Bear in mind that this is to see the inferences of DAVENet and to see it's training process
+    - Bear in mind that this is to see the inferences of DAVENet and to see its training process
     1. Add to wandb [Probably]
     2. Set path for:
         - Saving models
@@ -1806,3 +1806,72 @@ We saw that you can track the models parameters and gradients with wandb.watch a
 #### Next tasks:
 - Add Wandb.watch to our repo
 - check wandb today
+
+### 17/04/2025
+13 days left for the mental deadline
+Good thing to note, we use the same lr than SSL-TIE
+
+#### RoadMap todayyy:
+1. Analyze results of LVS[x]
+5. Send to test LVS model[x]
+3. Download models that we may need, We may have lost some weights... [x]
+4. Do inferences of LVS model [x]
+2. Decide what to do: Retrain from a specific epoch? [x]
+- wait till the test[x]
+- Read grads log post
+6. Check if we can get the weights of DAVENet to do the inference and test the model?[x]
+7. Decide if continue to reproduce DAVENet from scracth
+8. Start writing
+9. Implement Siamese
+10. Set a calendar event to say when the model will not be available hahaha
+11. Implement noise cancellation
+
+- 1
+So we got the results of the LVS approach and they are surprising:
+    - Better `val_loss` and `train_loss` at epoch `12` 
+    - Best epoch before overfittin `20` but epoch `22` is lower
+    - The change of lr is at `29`, already to late. 
+        - It should have been done at `20-22`
+    - It stops at `34`, difference from plateu 0.333
+    - Visually it looks way worse
+    - When it overfits every thing looks almost like the opposite thing that we should do
+    - gradients still don't make sense
+
+- 2 
+We could resume the training at epoch 20 with lr 1e-5 already and set the scheduler again but honestly I would like to get the test results before
+So we skip to task 5
+
+- 5 
+First check if the model exists in SCRATCH hahah
+Somehow we got back the weights of fMISA Hurraaayy
+Eventhough we got back 166223 we are not interested because this one wasn't learning
+Okay both are being tested
+
+
+- 3
+Okay we need:
+- S2Me20
+    - 57 best val and R@
+    - 40 local minima not the best R@
+    - 20 best video
+- S2Me10
+    - 40 global minima, change of lr, best recalls
+- fMISA
+    - wait till test
+- LVS
+    - wait till test
+
+- 4
+About to do the inferences
+
+- 6
+Meanwhile the models are being downloaded
+weights are not publicly available
+
+- 7
+Let's reproduce the results from scratch jeje
+##### Super important note DAVEnet
+It results that the nframes from the train loader are the frames the output frames (128 the max) represents where the audio stops and then does zeropadding later. MAYBE IT TAKES THIS INTO CONSIDERATION IN THE LOSS CALCULATION
+
+
+

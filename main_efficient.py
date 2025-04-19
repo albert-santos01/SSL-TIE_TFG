@@ -869,7 +869,7 @@ def main(args):
             if optim.param_groups[0]['lr'] != last_lr:
                 print(f"Learning rate changed from {last_lr} to {optim.param_groups[0]['lr']}")
                 # Stop the training if the learning rate is too low
-                if optim.param_groups[0]['lr'] < 1e-5:
+                if optim.param_groups[0]['lr'] < 1e-5 and args.early_stop:
                     print("Learning rate too low, stopping training")
                     break
         # Log the epoch metrics to wandb

@@ -23,8 +23,14 @@ def get_arguments():
     parser.set_defaults(use_wandb=False)
     parser.add_argument("--project_wandb", default='VG_SSL-TIE', type=str, help='Wandb project name')
     parser.add_argument("--run_name",default=None,type=str, help='Run name for the wandb project')
-    parser.add_argument("--log_gradients",action="store_true", help="To log the mean, median, min and max values of the gradient of each param of the model")
+                #Log gradients
+    parser.add_argument("--log_gradients",action="store_true", help="To log my own implementation for the mean, median, min and max values of the gradient of each param of the model")
     parser.set_defaults(log_gradients=False)
+    parser.add_argument("--log_watch",action="store_true", help="To log the histogram of the gradient of each param of the model")
+    parser.set_defaults(log_watch=False)
+    parser.add_argument("--log_graph",action="store_true", help="To log the graph of the model")
+    parser.set_defaults(log_graph=False)
+    parser.add_argument("--log_freq", default=100, type=int, help="Frequency to log the graph")
 
 
     parser.add_argument('--debug_code', action='store_true', help='Debug code')

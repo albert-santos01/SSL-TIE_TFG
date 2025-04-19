@@ -611,7 +611,7 @@ def main(args):
         else:
             wandb.init(project=args.project_wandb, config=config)
         
-
+    
 
     
     if args.debug:
@@ -656,6 +656,11 @@ def main(args):
         scheduler = lr_scheduler.ReduceLROnPlateau(optim, mode='min', factor=0.1, patience=5, verbose=True)
     
     args.iteration = 1
+    # Watch the gradients
+    if args.wandb and args.log_watch:
+        wandb.watch(model, log="all", log_graph=args.log_graph, log_freq=args.log_freq)
+
+
     
     if args.test:
         if os.path.isfile(args.test):

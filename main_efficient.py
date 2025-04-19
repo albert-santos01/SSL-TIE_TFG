@@ -657,7 +657,7 @@ def main(args):
     
     args.iteration = 1
     # Watch the gradients
-    if args.wandb and args.log_watch:
+    if args.use_wandb and args.log_watch:
         wandb.watch(model, log="all", log_graph=args.log_graph, log_freq=args.log_freq)
 
 
@@ -862,8 +862,8 @@ def main(args):
 
         if args.use_wandb:
             wandb.log({"epoch": epoch, "learning_rate": last_lr})
-
-        scheduler.step(val_loss) if args.scheduler == "ReduceLROnPlateau" else scheduler.step()
+        if args.scheduler:
+            scheduler.step(val_loss) if args.scheduler == "ReduceLROnPlateau" else scheduler.step()
         
         if args.scheduler == "ReduceLROnPlateau":
             if optim.param_groups[0]['lr'] != last_lr:

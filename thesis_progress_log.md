@@ -1874,4 +1874,56 @@ Let's reproduce the results from scratch jeje
 It results that the nframes from the train loader are the frames the output frames (128 the max) represents where the audio stops and then does zeropadding later. MAYBE IT TAKES THIS INTO CONSIDERATION IN THE LOSS CALCULATION
 
 
+### 18/04/2025 
+12 Days left 
+Well so this morning we signed and read all the documents that seQura requested me. Now this afternoon lets do some of thesis.
 
+The results of S2M10, fMISA and LVS are published. Therefore we can decide for each model the epoch to make inferences
+
+From the other part we have to resume our study of DAVEnet since we are very close to reproduce the results.
+
+Make a plan for writing the thesis is also an option.
+
+Something that I just thought is that we should see the crossmodal retrieval results to see if the model is learning the crossmodal alignment. We can do this after implementing the siamese and the noise... This comes from the idea that maybe the model even though is not retrieving the image desired we should get something similar in this case
+
+#### Today
+1. Decide the epochs to do the inferences
+2. Make the inferences
+3. Investigate the nframes phenomena
+    Do they really train without the final silence?
+4. Continue the debugging
+
+1. Decide the epochs to do the inferences
+For fMISA we have:
+    - The change of lr was done at epoch 32
+    - Epoch 33 as the global minima for val loss and and global max for avg R@ 
+    - Epoch 25 show a better video
+For LVS we have:
+    - Epoch 29 best Recall
+    - epoch 22 val loss global minima and local maxima for Recalls
+    - Epoch 17 best video
+
+2. Make the inferences
+Definately, the models that we said that have better video it is the same for the other inferences. Still the model is like acting right before the semantic word is spelled and the silence is really killing every time
+
+3. Investigate the nframes phenomena
+Okay so this is an astonishing moment because we find out that the DAVEnet uses the nframes in order to compute the matchmap till that moment, thus, the zero padding is made for the input output the same but the model pays attention only where's there's noise. It should be interesting how my models act only using the similarity  against the speaker
+
+This means that their model even though generates output temporal embeddings of 128 I =[B,C,H,W] A = [B,C,T] but the matchmap is M = [B,Tc,H,W] such that Tc <= T
+
+Will this a be huge significant change in my models?
+
+The model will have the same parameters but they indeed focus on what's important in this case. 
+
+We either apply the silence regulator, or we apply this...
+Let's see how DAVEnet act in this case
+
+After meditating it I found out that we should implement the json links system because the benefits from this are the following:
+- The testing retrieves the models from there
+    - However, We could easily loop the files in the folder
+- ModelOutputRetriever downloads from the cluster using the json links if the model is not found in local
+    - instead of implementing it we could put it directly
+Okay it doesn't make sense to spend that time
+
+We have to  ensure the cuda context 
+Since the model will try to do the crossmodal retrieval for every epoch we are going to track the time spent on validation and the whole epoch to decide if it's worth doing the validation and see how many minutes we need

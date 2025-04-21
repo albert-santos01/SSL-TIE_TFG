@@ -1887,11 +1887,11 @@ Make a plan for writing the thesis is also an option.
 Something that I just thought is that we should see the crossmodal retrieval results to see if the model is learning the crossmodal alignment. We can do this after implementing the siamese and the noise... This comes from the idea that maybe the model even though is not retrieving the image desired we should get something similar in this case
 
 #### Today
-1. Decide the epochs to do the inferences
-2. Make the inferences
-3. Investigate the nframes phenomena
-    Do they really train without the final silence?
-4. Continue the debugging
+1. Decide the epochs to do the inferences[x]
+2. Make the inferences[x]
+3. Investigate the nframes phenomena[x]
+    Do they really train without the final silence?[x]
+4. Continue the debugging[x]
 
 1. Decide the epochs to do the inferences
 For fMISA we have:
@@ -1916,7 +1916,7 @@ Will this a be huge significant change in my models?
 The model will have the same parameters but they indeed focus on what's important in this case. 
 
 We either apply the silence regulator, or we apply this...
-Let's see how DAVEnet act in this case
+Let's see how DAVEnet acts in this case
 
 After meditating it I found out that we should implement the json links system because the benefits from this are the following:
 - The testing retrieves the models from there
@@ -1927,3 +1927,36 @@ Okay it doesn't make sense to spend that time
 
 We have to  ensure the cuda context 
 Since the model will try to do the crossmodal retrieval for every epoch we are going to track the time spent on validation and the whole epoch to decide if it's worth doing the validation and see how many minutes we need
+
+### 19/04/2025
+So it seems that the set up for reproducing DAVEnet is not ready yet. So this is the first thing to do.
+I assume that the results are going to take a while, thus we need to find a plan for what is next. Things to code: we still have to do the siamese and the noise cancellation. Also we should investigate why the model's inference is ahead of the solution, maybe it's the main creation of the inference but let's see how are the inferences of Harwarth. 
+We should check also if we should implement the nframes idea.
+
+#### roadmapsito
+1. Reproduce DAVEnet
+2. Make a plan for noise cancellation
+3. Make a plan for writing
+4. Start coding noise cancellation till some point 2 hours
+5. Write something 
+
+1. `Reproduce DAVEnet`
+It seems that it's running as expected. While waiting for something to happen I started reading and i think i should try to overfit SSL-TIE with the subset, I think that 640 samples is enough for the model to learn them super quickly. And With this we can see the gradients using watch
+The loss is literally not decreasing at all, despite they were only three epochs 
+
+2. `Make a plan for silence`
+The notes of the last reunion:
+Harwarth introduces random negative clips to the audio samples like it would be audio maskings, and then creates a vector of T dimensions and its like a softmax smooth threshold to indicate how much the negative audio is present.
+
+Now do statistics to decide the threshold:
+The number of unique speakers:
+- val: 271
+- train: 2683
+- together: 2683
+
+Code to be done in the cluster:
+- Load waveforms multprocessed
+
+At experiments we started creating  the stats we cannot decide with the histograms the silence threshold
+RMS is an insteresting option
+DAVEnet is aparently learning!

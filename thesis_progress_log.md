@@ -1960,3 +1960,48 @@ Code to be done in the cluster:
 At experiments we started creating  the stats we cannot decide with the histograms the silence threshold
 RMS is an insteresting option
 DAVEnet is aparently learning!
+
+### 21/04/2025
+I don't know what is happening but I'm not working at all, I'm dealing with a lot of stress and anxiety and I can't be fully present with the thesis
+
+The plan for this afternoon is to have a plan for tomorrow's reunion and it would be ideal to have the negtive audio detector and like a plan for writing.
+For the silence:
+1. Get dBFS 
+2. Check if it catches the ranges
+3. compare with silencedetect
+4. See if my implementation is efficient
+5. Understand how can we map this silence into the time steps of the spectrogram
+6. implement divisor
+7. Check how much time per epoch
+Tell gloria that Hamilton uses a time masking 
+Decide with gloria if this mask will have artifacts, maybe aplying a LPF to make it smoother, more Ablation Study?
+
+DAVEnet ha terminado, el cabron no tiene un stop por los 100 epochs, lo hemos dejado por 144 epochs, en el paper dicen que obtienen eso, pero el batchsize en el paper es 128, no cien, bajan el lr cada 70 epochs no cada 40. hacer report de esto.
+
+5. ``Understand how can we map this silence into the time steps of the spectrogram``
+In order to get the number of frames in the STFT the formula is:
+
+    nFrames = floor((N - window_length) / hop_length ) + 1
+
+    - N - window_length: the number of samples you can move your window
+    - floor by hop the number of times you can fit this window hopping like this
+    - +1 the first one starts by zero
+This means that a 10 sec signal with the 0.025 ms windowsize and 0.01 ms shift leads to with sr (16kHz) hop_size 160 and window_length 400:
+    - 998 nFrames and 221 nbins because the n_fft is 400 (the other half are the undersampled freqs)
+    - In the case of `center=True` you don't substract the window length because it zeropads so the last window can fit like  frame D[:, t] is centered at y[t * hop_length]
+
+We can deduce that to get the 2048 nFrames we need at least 20,495 secs the rest of audio information will be truncated
+
+So this leads us to think that Harwarth is indeed using 20 secs and not 10, with 1024 would make more sense because is not integrating in the model that much of silence.we should see anyways the results of the training.
+`Before making any decision about modifying the audio processing pipeline` Let's reproduce correctly the videos of Harwarth
+Things to note:
+    - Its truncation and padding in freq is efficient along with the truncation of the matchmap to calculate the loss
+    - To avoid more bias they use instead 1024 and not downsampling a 4th time
+
+All in all lets punish the model for silence.
+
+1. 
+
+
+
+#### Reunion for tommorrow

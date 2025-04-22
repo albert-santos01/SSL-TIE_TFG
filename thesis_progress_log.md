@@ -2099,8 +2099,43 @@ Roadmap
 6. Start making the skeleton of the thesis
 7. Siamese
 Today 1, 2 and try to detect the silence with fast functions
+
 1. `Get the videos of DAVEnet`
 - We have all the models in the cluster DAVEnet_dump/exp_4/models
-- They go separate, imgnet and audnet
+- They go separate, imgnet and audnet:
+    - audio_model.{epoch}.pth
+    - image_model.{epoch}.pth
 
-Code 
+- `RESULTS comparison`:
+    - Considering that epoch 56 has the best avg_accuracy [.276]
+    - I->A @10 Paper: .291  Me: .262 
+    - A->I @10 Paper: .314  Me: .290
+
+I think that it is interesting to see all the models video. We could do a code meant to be runned at login node and loads all the models and uploads this media to  wandb for the val_video_idx 10
+
+1. So I would do a code that given the epoch it downloads the models in local. Easy as getting the files and regex
+
+2. Code to load both models as DAVEnet
+
+3. Do the inferences truncating the similarity map  
+
+After thinking about the significance of the temporal dimension in the similarity volume we found out that we were using the wrong frame rate for doing the videos, we did the following report at slack:
+
+    Hola bona tarda!
+    Os escric perquè he trobat una cosa important. Gràcies en haver investigat a fons el significat de la dimensió temporal final (128), doncs m'he adonat que no feia bé les inferències. 
+    Os comento:
+    Aquests 128 frames de similaritat temporal provenen dels 2048 frames freqüencials del Espectrograma, (el model fa 4 downsamplings= reducció de 2^4)
+    Aquests 2048 frames provenen de fer la STFT a una senyal de 20.48 segons perquè s'utilitza una finestra que s'aplica cada 0.01 segons
+    Ara bé, no tots els àudios de PlacesAudio són 20.48 segons, llavors el que fa Harwarth et al. 2018 és truncar l'espectrograma resultant si és més gran que 2048 frames freqüencials i zero padding si és més petit.
+
+    Os adjunto una fotografia d'un àudio de 6.64 segons. Al model li entra com a input el MelSpectrogram, com veieu més de la meitat són tot zeros, això fa que el model aprengui amb un bias no desitjat. Harwarth, ho soluciona truncant el volum de similaritats per calcular la loss i Hamilton et al. 2024 castiga el model si s'activa quan hi ha silenci, jo no faig res encara.
+
+    Això ho hem comentat a la reunió però el que jo os volia dir aquí és que tot i que no faig res per lidiar amb el bias, els meus models fan coses amb sentit.
+
+    Fins ara, les inferències que os he mostrat semblaven que l'activació del model anava avançada a l’àudio, tot i que localitzava correctament el subjectes mencionats. Doncs això te a veure a que jo utilitzava els 128 frames de similaritat i feia els vídeos amb un frame rate de 12.8 fps per obtenir vídeos de 10 segons. Clar, això no està bé perquè tot es comprimeix. Això fa que el video de l'activació amb la informació  fins el zero padding estarà a fins els 3.24 segons (41.5 frames) en el cas de l’àudio d'exemple de 6.64 segons.  
+    Llavors al entendre que per fer l'espectrograma de 2048 frames freqüencials és necessita una senyal de 20.48 segons, doncs això vol dir que el frame rate de les inferències ha de ser 128/20.48= 6.25 fps .
+
+    Amb aquesta freqüència de mostreig doncs els vídeos surten amb sentit i la seva activació ja fa coses rares quan l’àudio original s’ha acabat. Os mostro un vídeo com els feia al passat i com han de ser ara. Tot aquesta nova informació no treu que hem de provar de truncar els mapes de similaritat com Harwarth i castigar el model quan s'activa en el context de negative audio com Hamilton, però almenys anem pel bon camí.
+
+
+

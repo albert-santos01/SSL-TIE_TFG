@@ -22,6 +22,9 @@ import wandb
 from PIL import Image
 from datetime import datetime, timedelta
 from opts import get_arguments
+
+from abc import ABC, abstractmethod
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
     def __init__(self):
@@ -754,9 +757,9 @@ class GetSampleFromJson:
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    def load_audio_to_spec(self, audio_path, processing_type="DAVENet"):
+    def load_audio_to_spec(self, audio_path, processing_type="DAVENet",r_nFrames=False):
         if processing_type == "DAVENet":
-            audio = self.load_audio_DAVENet(audio_path)
+            audio = self.load_audio_DAVENet(audio_path,r_nFrames)
         elif processing_type == "SSL-TIE":
             audio = self.load_audio_SSLTIE(audio_path)
         else:
@@ -791,7 +794,7 @@ class GetSampleFromJson:
         """    
         return np.append(signal[0],signal[1:]-coeff*signal[:-1])
     
-    def load_audio_DAVENet(self, file):
+    def load_audio_DAVENet(self, file,r_nFrames):
         audio_type = self.audio_conf.get('audio_type', 'melspectrogram')
         if audio_type not in ['melspectrogram', 'spectrogram']:
             raise ValueError('Invalid audio_type specified in audio_conf. Must be one of [melspectrogram, spectrogram]')
@@ -838,28 +841,22 @@ class GetSampleFromJson:
             logspec = logspec[:,0:p]
             n_frames = target_length
         logspec = torch.FloatTensor(logspec)
-        # return logspec, n_frames
+        if r_nFrames:
+            return logspec, n_frames
         return logspec.unsqueeze(0)
    
-
-class MatchmapVideoGenerator:
-    def __init__(self,model, device, img, spec,args, matchmap = None):
-        self.model = model
+class MatchmapVideoGenerator(ABC):
+    def __init__(self,device,img, spec, matchmap):
+        super().__init__()
+        self.device = device
         self.device = device
         self.spec = Variable(spec.unsqueeze(0)).to(device, non_blocking=True) if spec.dim() == 3 else Variable(spec).to(device, non_blocking=True)
         self.image = Variable(img.unsqueeze(0)).to(device, non_blocking=True) if img.dim() == 3 else Variable(img).to(device, non_blocking=True)
-        self.args = args
         self.matchmap = matchmap
-        self.video = None
-
+    
+    @abstractmethod
     def compute_matchmap(self):
-        self.model.eval()
-        with torch.no_grad():
-            img_emb,aud_emb = self.model(self.image.float(), self.spec.float(), self.args)
-            img_emb = img_emb.squeeze(0)
-            aud_emb = aud_emb.squeeze(0)
-            self.matchmap = torch.einsum('ct, chw -> thw',aud_emb,img_emb)
-        return self.matchmap
+        pass
     
     def normalize_img(self, value, vmax=None, vmin=None):
         '''
@@ -882,6 +879,81 @@ class MatchmapVideoGenerator:
         matchmap_i_photo = cv2.applyColorMap(matchmap_i_photo, cv2.COLORMAP_JET)
         matchmap_i_photo = cv2.addWeighted(matchmap_i_photo, 0.5, img_np, 0.5, 0)
         return matchmap_i_photo
+    
+    @abstractmethod
+    def create_video_f(self,img_np, matchmap_np, output_path="matchmap_video.mp4", fps=1):
+        pass
+    
+    def create_video(self,output_path):
+        img_np = self.image[0].cpu().numpy()
+        img_np = np.transpose(img_np, (1, 2, 0))
+        img_np = self.normalize_img(img_np)
+        img_np = (img_np * 255).astype(np.uint8)
+        img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+
+        if self.matchmap is None:
+            self.matchmap = self.compute_matchmap()
+
+        matchmap_np = self.matchmap.cpu().numpy()
+        n_frames = matchmap_np.shape[0]
+        self.create_video_f(img_np, matchmap_np, output_path, fps=n_frames/20.48) # 10 sec duration
+
+    def add_audio_to_video(self, video_path, audio_path):
+        """
+        Add audio to video using ffmpeg and overwrite the output file if it exists.
+        """
+        temp_output = "temp_output.mp4"
+        
+        # Ensure the audio file exists
+        if not os.path.exists(audio_path):
+            raise Exception("Error: Audio file not found.")
+
+        # Use ffmpeg to merge audio and video
+        command = [
+            "ffmpeg",
+            "-y",  # Overwrite output files without asking
+            "-i", video_path,  # Input video
+            # "-stream_loop", "-1",  # Infinite loop for audio
+            "-i", audio_path,  # Input audio
+            "-map", "0:v",  # Video stream from first input
+            "-map", "1:a",  # Audio stream from second input
+            "-c:v", "copy",  # Copy video codec (no re-encoding)
+            "-c:a", "libmp3lame",  # Encode audio in mp3 format
+            "-t", "20.48",  # 20.48 sec duration
+            temp_output
+        ]
+        
+        try:
+            subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
+            if os.path.exists(temp_output):  # Ensure the temporary file exists
+                os.remove(video_path)  # Delete the original video file
+                shutil.move(temp_output, video_path)  # Rename the temporary file
+            else:
+                raise Exception("Error: Temporary output file not created.")
+        except subprocess.CalledProcessError as e:
+            raise Exception(f"Error during ffmpeg execution: {e.stderr.decode('utf-8')}")
+
+    def create_video_with_audio(self, output_path, audio_path):
+        self.create_video(output_path)
+        self.add_audio_to_video(output_path, audio_path)
+
+    
+
+class MatchmapVideoGeneratorSSL_TIE(MatchmapVideoGenerator):
+    def __init__(self,model, device, img, spec,args, matchmap = None):
+        super().__init__(device,img,spec,matchmap)
+        self.model = model
+        self.args = args
+
+    def compute_matchmap(self):
+        self.model.eval()
+        with torch.no_grad():
+            img_emb,aud_emb = self.model(self.image.float(), self.spec.float(), self.args)
+            img_emb = img_emb.squeeze(0)
+            aud_emb = aud_emb.squeeze(0)
+            self.matchmap = torch.einsum('ct, chw -> thw',aud_emb,img_emb)
+        return self.matchmap
+    
     
     def create_video_f(self,img_np, matchmap_np, output_path="matchmap_video.mp4", fps=1):
         n_frames = matchmap_np.shape[0]
@@ -936,60 +1008,6 @@ class MatchmapVideoGenerator:
         else:
             print("Error: Video file was not created properly")
             
-
-    def create_video(self,output_path):
-        img_np = self.image[0].cpu().numpy()
-        img_np = np.transpose(img_np, (1, 2, 0))
-        img_np = self.normalize_img(img_np)
-        img_np = (img_np * 255).astype(np.uint8)
-        img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
-
-        if self.matchmap is None:
-            self.matchmap = self.compute_matchmap()
-
-        matchmap_np = self.matchmap.cpu().numpy()
-        n_frames = matchmap_np.shape[0]
-        self.create_video_f(img_np, matchmap_np, output_path, fps=n_frames/10) # 10 sec duration
-
-
-    def add_audio_to_video(self, video_path, audio_path):
-        """
-        Add audio to video using ffmpeg and overwrite the output file if it exists.
-        """
-        temp_output = "temp_output.mp4"
-        
-        # Ensure the audio file exists
-        if not os.path.exists(audio_path):
-            raise Exception("Error: Audio file not found.")
-
-        # Use ffmpeg to merge audio and video
-        command = [
-            "ffmpeg",
-            "-y",  # Overwrite output files without asking
-            "-i", video_path,  # Input video
-            # "-stream_loop", "-1",  # Infinite loop for audio
-            "-i", audio_path,  # Input audio
-            "-map", "0:v",  # Video stream from first input
-            "-map", "1:a",  # Audio stream from second input
-            "-c:v", "copy",  # Copy video codec (no re-encoding)
-            "-c:a", "libmp3lame",  # Encode audio in mp3 format
-            "-t", "10",  # 10 sec duration
-            temp_output
-        ]
-        
-        try:
-            subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
-            if os.path.exists(temp_output):  # Ensure the temporary file exists
-                os.remove(video_path)  # Delete the original video file
-                shutil.move(temp_output, video_path)  # Rename the temporary file
-            else:
-                raise Exception("Error: Temporary output file not created.")
-        except subprocess.CalledProcessError as e:
-            raise Exception(f"Error during ffmpeg execution: {e.stderr.decode('utf-8')}")
-
-    def create_video_with_audio(self, output_path, audio_path):
-        self.create_video(output_path)
-        self.add_audio_to_video(output_path, audio_path)
 
 
 def load_model(ckpt_path, args):
@@ -1082,6 +1100,7 @@ def download_remote_file(remote_path, local_path):
         print(f"Successfully downloaded {remote_path} to {local_path}")
     else:
         print(f"Error downloading {remote_path}: {result.stderr}")
+        raise FileNotFoundError()
 
 
 def upload_file_to_cluster(local_path, remote_path):
@@ -1264,7 +1283,7 @@ def inference_maker(model_name, epoch, split, sample_idx, local_dir_saving):
     img = gs.load_image(img_local_path)
     spec = gs.load_audio_to_spec(aud_local_path)
 
-    mgv = MatchmapVideoGenerator(model, device, img, spec, args)
+    mgv = MatchmapVideoGeneratorSSL_TIE(model, device, img, spec, args)
     mgv.create_video_with_audio(inference_local_path, aud_local_path)
     
     

@@ -2005,3 +2005,102 @@ All in all lets punish the model for silence.
 
 
 #### Reunion for tommorrow
+- recap de la reunió anterior. testejem els models amb cpu pq el crossmodal retrieval ralentitza l'entrenament
+
+no explicarem implementacions ni procesos tecnics per arrivar-hi
+
+- Tinc els models que ens interesava ja computats i testejats
+    - fSISA
+    - S2Ms1/2
+    - S2Me20 (el que es va recomanar per slack)
+    - S2Me10 (el que van suggerir a l'última reunió)
+    - fMISA 
+
+- Com que els resultats no m'entusiasmaven vaig comprovar si els gradients feien coses amb sentit (Tasca pendent)
+    - fer un logging de gradients per cada backward
+    - mostrar report o no
+    - els gradients són més petits al projection que al input, no té rés de sentit
+    - m'agradaria reproduir el training process de ssl-tie per veure els gradients, al final tenim la mateixa lr
+
+- Vaig fer la implementació del LVS
+    - Res a comentar, simplement va ser difícil
+
+- Tots el models testejats:
+    - Mostrar WandB
+    - ans videos
+    - `fSISA`
+        - El pijtor
+        - Videos sparse, tal i com mencionava hamilton
+    - `S2Ms1/2`
+        - El millor model en Recall
+        - Val loss 2nd
+    - `fMISA`
+        - Casi com s1/2 pero pitjor, "assumim que millora el S2M"
+    - `S2Me20`
+        - Aquest no va ser aturat per la qualitat dels videos tot it que el lr no va baixar
+        - Localisation més gran
+        - val loss 2n pitjor
+        - canvi brutal al recall quan fa el switch
+    - `S2Me10`
+        - Al epoch 40 els té els millors resultats
+        - Canvi al recall al fer el switch
+        - 
+
+    - `LVS`
+        - Comença a baixar més tard, pero una vegada això va més rapid, més inclinat
+        - Es podria reentrenar, els canvis de lr arrivan tard
+        - Amb 1e-3 no entrena
+        - Comparació
+            - Epoch 12 ja guanya en Val loss i train loss
+            - Millor val_loss entre totes les configs
+            - Pitjor Recall
+            - Els videos són els pitjors, Semblant a SISA però millor
+            - Best epoch before overfittin `20` but epoch `22` is lower
+
+        
+
+
+
+
+- No m'agradaven els videos llavors a reproduïr DAVEnet per comparar pq tenim bons resultats crossmodal
+    - Explicar el fenomen de nframes:
+        - zeropad spec or truncate, truncate spec to nFrames...
+        - mostrar el paragraf del paper
+        - Qué pot significar això, El model apren el bias pero la loss surt bé?
+    - Movida del 2048 són 20 segs, té sentit 1024
+    -
+
+- probar de fer overfitting amb SSL-TIE
+    - img_aug fora
+    - només amb 64 samples
+    - gradients amb watch
+    - no molt significatiu
+
+- Negative audio:
+    - mostrar folder 
+    - Diferencies entre speakers...
+    - Hamilton introdueix silenci
+
+- Coses que estarian bé:
+    - fer comprovacions crossmodals retrievals...
+        - pq potser el model sí que fa coses amb sentit.
+
+- Pla per escriure:
+
+### 22/04/2025
+Reunion was succesfull. We noted the conclusions that Best model leads to MISA and it is interesting how the results change when switched to MISA.
+
+Roadmap
+1. Get the videos of DAVEnet
+2. Train fMISA truncating Matchmap
+3. Detect silence and punish the model
+4. Ablation study of the LVS threshold
+5. Try to make this parameters learnable, Hamilton mentions a regularizer
+6. Start making the skeleton of the thesis
+7. Siamese
+Today 1, 2 and try to detect the silence with fast functions
+1. `Get the videos of DAVEnet`
+- We have all the models in the cluster DAVEnet_dump/exp_4/models
+- They go separate, imgnet and audnet
+
+Code 

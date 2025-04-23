@@ -232,9 +232,11 @@ class AVDataset(ABC, Dataset):
         # frame_ori = np.array(self._load_frame(frame_path))
 
         if self.args.spec_DAVENet:
-            spectrogram = self._load_audio_DAVENet(audio_path)
             if self.args.truncate_matchmap:
                 spectrogram, nFrames = self._load_audio_DAVENet(audio_path)
+            else:
+                spectrogram = self._load_audio_DAVENet(audio_path)
+
         else:
             spectrogram = self._load_audio_SSL_TIE(audio_path)
              

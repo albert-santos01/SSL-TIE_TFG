@@ -162,9 +162,24 @@ def set_path(args):
         os.makedirs(model_path)
     return img_path, model_path, exp_path, links_path, home_models_path
 
+def _print_embeds(args,image,imgs_out,spec,auds_out):
+    if args.print_embeds:
+            print(f"-----------IN imgs: {image.shape}, -> OUT {imgs_out.shape}")
+            print(f"-----------IN auds: {spec.shape}, -> OUT {auds_out.shape}")
+            args.print_embeds = False
+def _S2M_step(args,idx,B,N):
+    if args.SISA_2_MISA_step !=0 and args.SISA_2_MISA_step <= idx:
+            print(f" - Changing from {args.simtype} to MISA at step {idx}, considering batch size {B} and {N} batches")
+            args.simtype = 'MISA'
+            args.SISA_2_MISA_step = 0
+
+def _S2M_epoch(args,epoch):
+    if args.SISA_2_MISA_epoch != 0 and args.SISA_2_MISA_epoch <= epoch:
+        print(f" - Changing from {args.simtype} to MISA at epoch {epoch} -")
+        args.simtype = 'MISA'
+        args.SISA_2_MISA_epoch = 0
 
 def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
-    # torch.set_grad_enabled(True)
     batch_time = AverageMeter('Time',':.2f')
     data_time = AverageMeter('Data',':.2f')
     losses = AverageMeter('Loss',':.4f')
@@ -179,8 +194,7 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         prefix='Epoch:[{}]'.format(epoch))
     
     model.train()
-    
-
+    torch.set_grad_enabled(True)
     
     end = time.time()
     tic = time.time()
@@ -189,13 +203,16 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     
     loss_debug = 0
 
-    if args.SISA_2_MISA_epoch != 0 and args.SISA_2_MISA_epoch <= epoch:
-        print(f" - Changing from {args.simtype} to MISA at epoch {epoch} -")
-        args.simtype = 'MISA'
-        args.SISA_2_MISA_epoch = 0
+    _S2M_epoch(args,epoch)
 
 
-    for idx, (image, spec, _ ) in enumerate(train_loader):
+    for idx, batch in enumerate(train_loader):
+        if args.truncate_matchmap:
+            image, spec, _, nFrames = batch
+        else:
+            image, spec, _ = batch
+            nFrames = None
+
         data_time.update(time.time() - end)
         spec = Variable(spec).to(device, non_blocking=True)
         image = Variable(image).to(device, non_blocking=True) 
@@ -204,18 +221,16 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         # First branch of the siamese network
         imgs_out, auds_out = model(image.float(), spec.float(), args, mode='train')
         
-        if args.print_embeds:
-            print(f"-----------IN imgs: {image.shape}, -> OUT {imgs_out.shape}")
-            print(f"-----------IN auds: {spec.shape}, -> OUT {auds_out.shape}")
-            args.print_embeds = False
+        if args.truncate_matchmap:
+            pooling_ratio = round(spec.size(-1) / auds_out.size(-1))
+            nFrames //= pooling_ratio
+
+        _print_embeds(args,image,imgs_out,spec,auds_out)
                     
-        if args.SISA_2_MISA_step !=0 and args.SISA_2_MISA_step <= idx:
-            print(f" - Changing from {args.simtype} to MISA at step {idx}, considering batch size {B} and {len(train_loader)} batches")
-            args.simtype = 'MISA'
-            args.SISA_2_MISA_step = 0
+        _S2M_step(args,idx,B,len(train_loader))
             
 
-        loss_cl = infoNCE_loss(imgs_out,auds_out, args)        
+        loss_cl = infoNCE_loss(imgs_out,auds_out,args,nFrames=nFrames)        
 
         if args.siamese:
 

@@ -2137,5 +2137,20 @@ After thinking about the significance of the temporal dimension in the similarit
 
     Amb aquesta freqüència de mostreig doncs els vídeos surten amb sentit i la seva activació ja fa coses rares quan l’àudio original s’ha acabat. Os mostro un vídeo com els feia al passat i com han de ser ara. Tot aquesta nova informació no treu que hem de provar de truncar els mapes de similaritat com Harwarth i castigar el model quan s'activa en el context de negative audio com Hamilton, però almenys anem pel bon camí.
 
+### 23/04/2025
+From what we proposed yesterday, we ended up making the `MatchmapVideoGenerator` and Abstract class so we can do the inference with the architechture decided, in this case DAVEnet or SSL-TIE. The videos of DAVEnet are really bad, again if we truncate the matchmap till the zeropadding we should make the fps accordingly, so not the nFrames/20.48. Therefore we don't truncate the matchmap to make the video inference. 
+I think that my results of DAVEnet are not that far away from the original, please note that he considers his best model the one that it is pretrained. I assume that our model really benefits from the img augmentations and maybe our audio encoder architechture creates better audio features. Therefore, makes sense all the process behind SSL-TIE
 
+2. ``Train fMISA truncating Matchmap``
+Just add some flags and add the nFrames 
+Therefore we need the flags at:
+    1. _getitem_(idx)[done]
+    2. Need to change the trainloader( maybe a flag in the for??)[done]
+    3. model, then do the division
+    4. InfoNCE loss see if we can truncate with nF
 
+it is not possible to aud[:,:,:nFrames] because every n_frame is different and tensors need to be rectangular
+
+There are two ways to truncate it:
+1. Or making the similarity frame all to zero
+2. or cutting the temporal dimension in the audios like harwarth, this leadsme to a two nested loops

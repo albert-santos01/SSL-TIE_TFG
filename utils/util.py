@@ -468,7 +468,7 @@ def sampled_margin_rank_loss(image_outputs, audio_outputs, margin=1., simtype='M
             loss = loss + I2A_simdif
     loss = loss / B
     return loss
-def volumemap_sim(volume_matrix, simtype='MISA'):
+def volumemap_sim(volume_matrix, simtype='MISA',nFrames=None):
     """
     Computes the similarity scoring for all the combinations B x B
         volume_matrix (B x B x T x H x W)
@@ -476,19 +476,24 @@ def volumemap_sim(volume_matrix, simtype='MISA'):
         Returns (B x B) similarity matrix
     """
     assert(volume_matrix.dim() == 5)
+    
+    if nFrames is None:
+        nFrames = volume_matrix.size(2)
 
     if simtype== 'MISA':
         #MI
        volume_matrix, _ =volume_matrix.max(-1) # x spatial
        volume_matrix, _ =volume_matrix.max(-1) # y spatial
         #MISA
-       volume_matrix =volume_matrix.mean(-1) # t temporal
+    #    volume_matrix =volume_matrix.mean(-1) # t temporal
+       volume_matrix = volume_matrix.sum(dim=(1)) / nFrames  # To avoid bias in truncation
+       
     elif simtype == 'SISA':
         volume_matrix = volume_matrix.mean(-1)
         volume_matrix = volume_matrix.mean(-1)
-        volume_matrix = volume_matrix.mean(-1)
+        volume_matrix = volume_matrix.sum(dim=(1)) / nFrames
     elif simtype == 'SIMA':
-        volume_matrix,_ = volume_matrix.max(2) # MA
+        volume_matrix,_ = volume_matrix.max(2) # MA #truncated frames are not included
         volume_matrix = volume_matrix.mean(-1)
         volume_matrix = volume_matrix.mean(-1) #SIMA
     else:
@@ -529,6 +534,33 @@ def similarity_matrix_bxb(img_outs, aud_outs,temp=0.07,simtype='MISA'):
 
     return s_outs
 
+def similarity_matrix_bxb_truncated(img_outs, aud_outs, nFrames, temp=0.07, simtype='MISA'):
+    """
+        img_outs (B x C x H x W) 
+        aud_outs  (B x C x T)
+        nFrames: (B x 1) just for truncating the audio
+        Assumption: the channel dimension is already normalized
+        For the similarity, 
+        Returns a B x B similarity matrix: (exp(s_ij / temp))
+    """
+    assert(img_outs.dim() == 4)
+    assert(aud_outs.dim() == 3)
+    B = img_outs.size(0)
+    T = aud_outs.size(2)
+    device= aud_outs.device
+    s_outs = torch.einsum('bct, pchw -> bpthw', aud_outs, img_outs)
+    
+    nFrames = torch.tensor(nFrames,device=device)
+
+    mask = torch.arange(T,device=device).view(1,1,T,1,1) < nFrames.view(B,1,1,1,1)
+
+    s_outs_masked = volumemap_sim(s_outs * mask, simtype,nFrames=nFrames)
+
+
+   
+
+    
+    
 
 def infoNCE_loss_LVS(image_outputs, audio_outputs, args):
     """
@@ -582,10 +614,11 @@ def infoNCE_loss_LVS(image_outputs, audio_outputs, args):
 
 
 
-def infoNCE_loss(image_outputs, audio_outputs,args,return_S=False):
+def infoNCE_loss(image_outputs, audio_outputs,args,return_S=False,nFrames=None):
     """
         images_outputs (B x C x H x W) 
         audio_outputs  (B x C x T)
+        nFrames: (B x 1) just for truncating the audio 
         Assumption: the channel dimension is already normalized
         Returns the InfoNCE loss
     """
@@ -600,8 +633,10 @@ def infoNCE_loss(image_outputs, audio_outputs,args,return_S=False):
 
     B = image_outputs.size(0)
     mask = torch.eye(B, device=image_outputs.device)
-
-    sims =  similarity_matrix_bxb(image_outputs, audio_outputs,args.temperature,args.simtype)
+    if nFrames is not None:
+        sims = similarity_matrix_bxb_truncated(image_outputs, audio_outputs, nFrames, args.temperature, args.simtype)
+    else:
+        sims =  similarity_matrix_bxb(image_outputs, audio_outputs,args.temperature,args.simtype)
     pos = sims * mask
     neg = sims * (1 - mask)
 

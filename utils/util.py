@@ -468,39 +468,6 @@ def sampled_margin_rank_loss(image_outputs, audio_outputs, margin=1., simtype='M
             loss = loss + I2A_simdif
     loss = loss / B
     return loss
-def volumemap_sim(volume_matrix, simtype='MISA',nFrames=None):
-    """
-    Computes the similarity scoring for all the combinations B x B
-        volume_matrix (B x B x T x H x W)
-        simtype MISA | SISA | SIMA
-        Returns (B x B) similarity matrix
-    """
-    assert(volume_matrix.dim() == 5)
-    
-    if nFrames is None:
-        nFrames = volume_matrix.size(2)
-
-    if simtype== 'MISA':
-        #MI
-       volume_matrix, _ =volume_matrix.max(-1) # x spatial
-       volume_matrix, _ =volume_matrix.max(-1) # y spatial
-        #MISA
-    #    volume_matrix =volume_matrix.mean(-1) # t temporal
-       volume_matrix = volume_matrix.sum(dim=(1)) / nFrames  # To avoid bias in truncation
-       
-    elif simtype == 'SISA':
-        volume_matrix = volume_matrix.mean(-1)
-        volume_matrix = volume_matrix.mean(-1)
-        volume_matrix = volume_matrix.sum(dim=(1)) / nFrames
-    elif simtype == 'SIMA':
-        volume_matrix,_ = volume_matrix.max(2) # MA #truncated frames are not included
-        volume_matrix = volume_matrix.mean(-1)
-        volume_matrix = volume_matrix.mean(-1) #SIMA
-    else:
-        raise ValueError('Unknown similarity type: %s' % simtype)
-
-    assert(volume_matrix.dim() == 2)
-    return volume_matrix
 
 def tensor_memory_MB(tensor, name):
     """
@@ -516,6 +483,42 @@ def tensor_memory_MB(tensor, name):
     size_mb = size_bytes / (1024 ** 2)
     print(f"Size of {name}: {size_mb:.2f} MB")
     return size_mb
+
+def volumemap_sim(volume_matrix, simtype='MISA',nFrames=None):
+    """
+    Computes the similarity scoring for all the combinations B x B
+        volume_matrix (B x B x T x H x W)
+        simtype MISA | SISA | SIMA
+        nFrames None | (B x B) containing the n of unmasked
+        Returns (B x B) similarity matrix
+    """
+    assert(volume_matrix.dim() == 5)
+    
+    if nFrames is None:
+        nFrames = volume_matrix.size(2) # Do normal mean
+        
+    if simtype== 'MISA':
+        #MI
+       volume_matrix, _ =volume_matrix.max(-1) # x spatial
+       volume_matrix, _ =volume_matrix.max(-1) # y spatial
+        #MISA
+    #    volume_matrix =volume_matrix.mean(-1) # t temporal
+       volume_matrix = volume_matrix.sum(dim=(2)) / nFrames  # To avoid bias in truncation
+       
+    elif simtype == 'SISA':
+        volume_matrix = volume_matrix.mean(-1)
+        volume_matrix = volume_matrix.mean(-1)
+        volume_matrix = volume_matrix.sum(dim=(2)) / nFrames
+    elif simtype == 'SIMA':
+        volume_matrix,_ = volume_matrix.max(2) # MA #truncated frames are not included
+        volume_matrix = volume_matrix.mean(-1)
+        volume_matrix = volume_matrix.mean(-1) #SIMA
+    else:
+        raise ValueError('Unknown similarity type: %s' % simtype)
+
+    assert(volume_matrix.dim() == 2)
+    return volume_matrix
+
 
 def similarity_matrix_bxb(img_outs, aud_outs,temp=0.07,simtype='MISA'):
     """
@@ -548,13 +551,20 @@ def similarity_matrix_bxb_truncated(img_outs, aud_outs, nFrames, temp=0.07, simt
     B = img_outs.size(0)
     T = aud_outs.size(2)
     device= aud_outs.device
+
     s_outs = torch.einsum('bct, pchw -> bpthw', aud_outs, img_outs)
     
     nFrames = torch.tensor(nFrames,device=device)
 
     mask = torch.arange(T,device=device).view(1,1,T,1,1) < nFrames.view(B,1,1,1,1)
 
-    s_outs_masked = volumemap_sim(s_outs * mask, simtype,nFrames=nFrames)
+    s_outs_masked = volumemap_sim(s_outs * mask, simtype, nFrames=nFrames.unsqueeze(-1))
+
+    s_outs_masked = torch.exp(s_outs_masked / temp)
+
+    return s_outs_masked
+
+
 
 
    

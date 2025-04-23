@@ -187,7 +187,8 @@ class AVDataset(ABC, Dataset):
             logspec = logspec[:,0:p]
             n_frames = target_length
         logspec = torch.FloatTensor(logspec)
-        # return logspec, n_frames
+        if self.args.truncate_matchmap:
+            return logspec.unsqueeze(0), n_frames
         return logspec.unsqueeze(0)
 
     def _load_audio_SSL_TIE(self,file):
@@ -232,6 +233,8 @@ class AVDataset(ABC, Dataset):
 
         if self.args.spec_DAVENet:
             spectrogram = self._load_audio_DAVENet(audio_path)
+            if self.args.truncate_matchmap:
+                spectrogram, nFrames = self._load_audio_DAVENet(audio_path)
         else:
             spectrogram = self._load_audio_SSL_TIE(audio_path)
              
@@ -240,6 +243,8 @@ class AVDataset(ABC, Dataset):
         else:
             audio = 'None'
         # return frame, spectrogram, audio, file, torch.tensor(frame_ori)
+        if self.args.truncate_matchmap:
+            return frame, spectrogram, audio, nFrames
         return frame, spectrogram, audio
 
 

@@ -842,7 +842,7 @@ class GetSampleFromJson:
             n_frames = target_length
         logspec = torch.FloatTensor(logspec)
         if r_nFrames:
-            return logspec, n_frames
+            return logspec.unsqueeze(0), n_frames
         return logspec.unsqueeze(0)
    
 class MatchmapVideoGenerator(ABC):

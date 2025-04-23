@@ -78,7 +78,8 @@ def get_arguments():
         parser.add_argument('--early_stop',action='store_true', help= "Stop the model if  the lr goes to 1e-6")
         parser.set_defaults(early_stop = False)
         
-
+        parser.add_argument('--truncate_matchmap',action='store_true', help= "Truncate the matchmap in order to avoid the zero padding")
+        parser.set_defaults(truncate_matchmap = False)
         #
 
         parser.add_argument('--trainset', default='VGGSS', type=str, help="Training dataset")

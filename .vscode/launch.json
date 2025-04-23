@@ -198,6 +198,64 @@
             ],
         },
         {
+            "name": "Tr Places subset trunc spec_DAVENet",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "main_efficient.py",
+            "console": "integratedTerminal",
+            "args": [   
+                "--batch_size", "16",
+                "--n_threads","0",
+                "--gpus", "0",
+                "--exp_name", "SSLTIE_subset_PlacesAudio",
+                "--eval_freq", "1",
+                "--eval_start", "1",
+                "--img_aug", "moco_v2",
+                "--equi_loss_type", "mse",
+                "--placesAudio", "$DATA/PlacesAudio_400k_distro/metadata/subsets/",
+                "--dataset_mode", "PlacesAudio",
+                "--rescale_factor", "0.5", "1.0",
+                "--max_rotation_angle", "30",
+                "--epochs", "100",
+                "--spec_DAVENet",
+                "--truncate_matchmap",
+                // The following args are for the new architecture
+                "--order_3_tensor",
+                "--simtype", "MISA"
+                
+                // "--LVS",
+                // "--siamese",
+                // "--big_temp_dim",
+            ],
+        },
+        {
+            "name": "Train Flickr 10k",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--batch_size", "32",
+                "--gpus", "0",
+                "--exp_name", "SSLTIE_Flickr_10k",
+                "--eval_freq", "1",
+                "--eval_start", "1",
+                "--img_aug", "moco_v2",
+                "--equi_loss_type", "mse",
+                "--dataset_mode", "Flickr",
+                "--training_set_scale", "subset_10k",
+                "--rescale_factor", "0.5", "1.0",
+                "--max_rotation_angle", "30",
+                "--aud_aug", "SpecAug",
+                "--Flickr_trainset_path", "dir_of_trainset",
+                "--soundnet_test_path", "dir_of_testset",
+                "--epochs", "100"
+            ],
+            "env": {
+                "DATA": "/absolute/path/to/DATA" // Set this to your actual DATA directory
+            }
+        },
+        {
             "name": "Tr Places subset LVS spec_DAVENet",
             "type": "debugpy",
             "request": "launch",

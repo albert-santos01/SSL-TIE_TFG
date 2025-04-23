@@ -880,9 +880,58 @@ class MatchmapVideoGenerator(ABC):
         matchmap_i_photo = cv2.addWeighted(matchmap_i_photo, 0.5, img_np, 0.5, 0)
         return matchmap_i_photo
     
-    @abstractmethod
     def create_video_f(self,img_np, matchmap_np, output_path="matchmap_video.mp4", fps=1):
-        pass
+        n_frames = matchmap_np.shape[0]
+        
+        # Make sure img_np is in uint8 format
+        if img_np.dtype != np.uint8:
+            img_np = (img_np * 255).astype(np.uint8)
+        
+        # Make sure img_np has correct dimensions (224, 224, 3)
+        if img_np.shape[:2] != (224, 224):
+            img_np = cv2.resize(img_np, (224, 224))
+        
+        # Use proper codec for compatibility
+        # For better compatibility, try 'avc1' or 'H264' instead of 'mp4v'
+        fourcc = cv2.VideoWriter_fourcc(*'avc1') 
+        
+        # Alternative codec options if 'avc1' doesn't work:
+        # fourcc = cv2.VideoWriter_fourcc(*'H264')
+        # fourcc = cv2.VideoWriter_fourcc(*'XVID')  # More compatible but lower quality
+        
+        out = cv2.VideoWriter(output_path, fourcc, fps, (224, 224))
+        
+        if not out.isOpened():
+            print("Failed to create VideoWriter. Trying alternative codec...")
+            # Try with different codec
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            out = cv2.VideoWriter(output_path.replace('.mp4', '.avi'), fourcc, fps, (224, 224))
+        
+        for i in range(n_frames):
+            frame = self.get_frame_match(img_np, matchmap_np, i)
+            
+            # Ensure frame is the correct format
+            if frame.dtype != np.uint8:
+                frame = (frame * 255).astype(np.uint8)
+                
+            # Ensure frame has the right shape
+            if frame.shape[:2] != (224, 224):
+                frame = cv2.resize(frame, (224, 224))
+                
+            # Verify frame is BGR (OpenCV's default format)
+            if len(frame.shape) == 3 and frame.shape[2] == 3:
+                out.write(frame)
+            else:
+                print(f"Warning: Frame {i} has incorrect format. Shape: {frame.shape}")
+        
+        out.release()
+        print(f"Video created at: {output_path}")
+        
+        # Verify the file was created and has a non-zero size
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            print(f"Success! Video file created: {os.path.getsize(output_path)} bytes")
+        else:
+            print("Error: Video file was not created properly")
     
     def create_video(self,output_path):
         img_np = self.image[0].cpu().numpy()

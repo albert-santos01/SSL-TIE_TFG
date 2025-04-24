@@ -52,7 +52,7 @@ from sklearn.metrics import auc
 from tqdm import tqdm
 
 from utils.util import topk_accuracies, similarity_matrix_bxb, \
-      topk_accuracy, update_json_file, MatchmapVideoGenerator,\
+      topk_accuracy, update_json_file, MatchmapVideoGeneratorSSL_TIE,\
       vis_loader, prepare_device, vis_heatmap_bbox, tensor2img, \
       sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss
 from utils.tf_equivariance_loss import TfEquivarianceLoss
@@ -180,6 +180,7 @@ def _S2M_epoch(args,epoch):
         args.SISA_2_MISA_epoch = 0
 
 def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
+    # torch.set_grad_enabled(True)
     batch_time = AverageMeter('Time',':.2f')
     data_time = AverageMeter('Data',':.2f')
     losses = AverageMeter('Loss',':.4f')
@@ -194,7 +195,6 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         prefix='Epoch:[{}]'.format(epoch))
     
     model.train()
-    torch.set_grad_enabled(True)
     
     end = time.time()
     tic = time.time()
@@ -357,7 +357,12 @@ def validate(val_loader, model, criterion, device, epoch, args):
     video_gen = False
     with torch.no_grad():
         end = time.time()
-        for idx, (image, spec, audio_path) in tqdm(enumerate(val_loader), total=len(val_loader)):
+        for idx, batch in tqdm(enumerate(val_loader), total=len(val_loader)):
+            if args.truncate_matchmap:
+                image, spec, audio_path, nFrames = batch
+            else:
+                image, spec, audio_path = batch
+                nFrames = None
 
             spec = Variable(spec).to(device, non_blocking=True)
             image = Variable(image).to(device, non_blocking=True)
@@ -366,13 +371,15 @@ def validate(val_loader, model, criterion, device, epoch, args):
 
             imgs_out, auds_out = model(image.float(), spec.float(), args, mode='val')
 
-            imgs_out = imgs_out.to('cpu').detach()
-            auds_out = auds_out.to('cpu').detach()
- 
+            if args.truncate_matchmap:
+                pooling_ratio = round(spec.size(-1) / auds_out.size(-1))
+                nFrames //= pooling_ratio
 
-            loss_cl = infoNCE_loss(imgs_out,auds_out, args)
+            loss_cl = infoNCE_loss(imgs_out,auds_out, args,nFrames=nFrames)
 
             if args.cross_modal_freq != -1 and (epoch % args.cross_modal_freq) == 0:
+                imgs_out = imgs_out.to('cpu').detach()
+                auds_out = auds_out.to('cpu').detach()
                 img_embs_all.append(imgs_out)
                 aud_embs_all.append(auds_out)
 
@@ -404,7 +411,7 @@ def validate(val_loader, model, criterion, device, epoch, args):
                         spec_input = spec_input.detach()
                         
 
-                        mgv = MatchmapVideoGenerator(model,device,frame,spec_input,args,matchmap)
+                        mgv = MatchmapVideoGeneratorSSL_TIE(model,device,frame,spec_input,args,matchmap)
 
                         video_dir = os.path.join(args.img_path,"val_videos")
                         if not os.path.exists(video_dir):       
@@ -614,13 +621,7 @@ def main(args):
     
     # wandb initialization
     if args.use_wandb:
-        config = dict(
-            learning_rate = args.learning_rate,
-            weight_decay = args.weight_decay,
-            batch_size = args.batch_size,
-            epochs = args.epochs,
-            dataset_mode = args.dataset_mode,
-            seed = args.seed)
+        config = {key: value for key, value in vars(args).items()}
         if args.run_name:
             wandb.init(project=args.project_wandb, config=config, name=args.run_name)
         else:

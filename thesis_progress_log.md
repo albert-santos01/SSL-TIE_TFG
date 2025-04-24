@@ -2091,9 +2091,9 @@ no explicarem implementacions ni procesos tecnics per arrivar-hi
 Reunion was succesfull. We noted the conclusions that Best model leads to MISA and it is interesting how the results change when switched to MISA.
 
 Roadmap
-1. Get the videos of DAVEnet
-2. Train fMISA truncating Matchmap
-3. Detect silence and punish the model
+1. Get the videos of DAVEnet [Done]
+2. Train fMISA truncating Matchmap [Done]
+3. Detect silence and punish the model 
 4. Ablation study of the LVS threshold
 5. Try to make this parameters learnable, Hamilton mentions a regularizer
 6. Start making the skeleton of the thesis
@@ -2146,11 +2146,39 @@ Just add some flags and add the nFrames
 Therefore we need the flags at:
     1. _getitem_(idx)[done]
     2. Need to change the trainloader( maybe a flag in the for??)[done]
-    3. model, then do the division
-    4. InfoNCE loss see if we can truncate with nF
+    3. model, then do the division[Done]
+    4. InfoNCE loss see if we can truncate with nF [Done]
+        We ended up making another function for creating the matrix of volumes which they are masked and then the average considers only the unmasked ones
 
 it is not possible to aud[:,:,:nFrames] because every n_frame is different and tensors need to be rectangular
 
 There are two ways to truncate it:
-1. Or making the similarity frame all to zero
+1. Or making the similarity frame all to zero and do an average according to the nonzero values
 2. or cutting the temporal dimension in the audios like harwarth, this leadsme to a two nested loops
+
+
+Now it is time for debugging:
+- check the spec at [:,nFrames] !=0? yesssss it is zero always
+- By debugging, it seems that already the similarity when it reached to padded frames it seems that it is already low like 1e-3 compared to values to 0.02...
+- Finished debugging:
+    - of args.truncate_matchmap is not activated the nFrames = None works as expected giving sij.mean(-1) == sij.sum(-1)/nFrames
+    - By being activated it seems that it works since s_outsmasked > s_outs since it takes less low values as mentioned in the previous bulletpoint
+ 
+- Let's throw the model ``fMISA-SdT128TrC``
+Done:)
+
+3. `Detect Silence`
+We need to finish this in one hour.
+Lets try the librosa function
+The function of claude is amazing we still have to decide if to use the floor cealing
+We should apply this to the cropped signals, longer than 20.48n nnoppe
+
+TO DO:
+- Arreglar val_loader[Done]
+- Lanzar otra vez[Done]
+- Probar trim [Done]
+- Descubrir is floor or cealing
+- Meter en el train loader los silencios, 
+    - estaria bien que dividamos por  el ratio desde model
+- dot product con mean de el volumen de similaridades al cuadrado  con vector de silencios
+- Lanzar

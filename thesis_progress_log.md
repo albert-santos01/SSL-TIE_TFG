@@ -2177,8 +2177,47 @@ TO DO:
 - Arreglar val_loader[Done]
 - Lanzar otra vez[Done]
 - Probar trim [Done]
-- Descubrir is floor or cealing
+- Descubrir is floor or cealing[Done]
 - Meter en el train loader los silencios, 
     - estaria bien que dividamos por  el ratio desde model
 - dot product con mean de el volumen de similaridades al cuadrado  con vector de silencios
 - Lanzar
+
+### 24/04
+The models aren't being trained, thus, we have to check why:
+- The models didn't continue their training due to instianation of MatchmapVideoGenerator ABC class
+- Lets check if the torch.set
+To Do: 
+1. Lanzar fMISA Show 4 epochs[Done]
+    - In an hour we will know if the models are being trained or not
+    - Just compare train_loss_step with a normal fMISA
+2. Check if floor or cealing: 
+    We are going to use round... when len(y_db) after this is nFrames therefore they will be cancelled indeed
+3. I works perfectly fine and audio and the spectrogram you can't barely notice the clipping
+
+fMISA cannot be reproduced, something is going on:
+- Params for training are all the same if we don't consider the new ones like log_grads and epoch 3 instead of 100
+    - LVS was trained with them but not with the watch ones
+- Difference in commit since LVS:
+    - main_efficient:
+        - the prints
+        - the ifs of truncate matchmap
+    - util.py:
+        - The only thing that could affect here is the mean by nFrames
+
+We are trying right now to reproduce LVS:
+
+We changed again the nFrames mean as what it was, if not the only thing that maybe is affecting the computation is wandb.watch(model)
+Therefore we send fMISAshow again...
+
+Things we have to do:
+1. Throw truncated model
+2. Apply to train loader Silence (send only the matrix in t_freq)
+    1. model does the division and creates the vector
+    2. Apply the L2 normalization
+    3. Throw model
+3. Ablation study of LVS params
+4. Make parameters learnable
+5. Time regularisation
+6. Siamese
+

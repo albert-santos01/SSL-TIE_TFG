@@ -493,22 +493,25 @@ def volumemap_sim(volume_matrix, simtype='MISA',nFrames=None):
         Returns (B x B) similarity matrix
     """
     assert(volume_matrix.dim() == 5)
-    
-    if nFrames is None:
-        nFrames = volume_matrix.size(2) # Do normal mean
-        
+                
     if simtype== 'MISA':
         #MI
-       volume_matrix, _ =volume_matrix.max(-1) # x spatial
-       volume_matrix, _ =volume_matrix.max(-1) # y spatial
+       volume_matrix, _ = volume_matrix.max(-1) # x spatial
+       volume_matrix, _ = volume_matrix.max(-1) # y spatial
         #MISA
-    #    volume_matrix =volume_matrix.mean(-1) # t temporal
-       volume_matrix = volume_matrix.sum(dim=(2)) / nFrames  # To avoid bias in truncation
+       if nFrames is None:
+            volume_matrix = volume_matrix.mean(-1) # t temporal
+       else: # Truncated Volume
+            volume_matrix = volume_matrix.sum(dim=(2)) / nFrames  # To avoid bias in truncation
        
     elif simtype == 'SISA':
         volume_matrix = volume_matrix.mean(-1)
         volume_matrix = volume_matrix.mean(-1)
-        volume_matrix = volume_matrix.sum(dim=(2)) / nFrames
+        if nFrames is None:
+            volume_matrix = volume_matrix.mean(-1)
+        else: # Truncated Volume
+            volume_matrix = volume_matrix.sum(dim=(2)) / nFrames
+
     elif simtype == 'SIMA':
         volume_matrix,_ = volume_matrix.max(2) # MA #truncated frames are not included
         volume_matrix = volume_matrix.mean(-1)
@@ -564,13 +567,6 @@ def similarity_matrix_bxb_truncated(img_outs, aud_outs, nFrames, temp=0.07, simt
 
     return s_outs_masked
 
-
-
-
-   
-
-    
-    
 
 def infoNCE_loss_LVS(image_outputs, audio_outputs, args):
     """
@@ -644,7 +640,7 @@ def infoNCE_loss(image_outputs, audio_outputs,args,return_S=False,nFrames=None):
     B = image_outputs.size(0)
     mask = torch.eye(B, device=image_outputs.device)
     if nFrames is not None:
-        sims = similarity_matrix_bxb_truncated(image_outputs, audio_outputs, nFrames, args.temperature, args.simtype)
+        sims = similarity_matrix_bxb_truncated(image_outputs, audio_outputs, nFrames= nFrames, temp=args.temperature, simtype=args.simtype)
     else:
         sims =  similarity_matrix_bxb(image_outputs, audio_outputs,args.temperature,args.simtype)
     pos = sims * mask

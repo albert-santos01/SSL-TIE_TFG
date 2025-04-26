@@ -193,6 +193,13 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         print(f" - Changing from {args.simtype} to MISA at epoch {epoch} -")
         args.simtype = 'MISA'
         args.SISA_2_MISA_epoch = 0
+    
+    if args.MISA_2_LVS_epoch != 0 and args.MISA_2_LVS_epoch <= epoch:
+        print(f" - Changing from {args.simtype} to LVS at epoch {epoch} -")
+        args.LVS = True
+        args.MISA_2_LVS_epoch = 0
+        
+
 
 
     for idx, (image, spec, _ ) in enumerate(train_loader):
@@ -589,8 +596,8 @@ def main(args):
     print('Number of of cores allocated:',len(os.sched_getaffinity(0)))
     print(f"{os.sched_getaffinity(0)} CPU cores that job {args.job_id} is allowed to run on")  # Will show the CPU cores your job is allowed to run on
 
-    if len(os.sched_getaffinity(0)) > 32:
-        raise ValueError("Too many CPUs. Restart to use fewer CPUs for a more efficient run.")
+    # if len(os.sched_getaffinity(0)) > 32:
+    #     raise ValueError("Too many CPUs. Restart to use fewer CPUs for a more efficient run.")
     
 
     if args.debug_code:
@@ -617,6 +624,19 @@ def main(args):
     if args.debug:
         args.n_threads=0
 
+    if args.MISA_2_LVS_epoch != 0:
+        error = False
+        string_error = "MISA_2_LVS_epoch is set to {args.MISA_2_LVS_epoch}" 
+        if args.simtype != "MISA":
+            string_error += f" but simtype is set to {args.simtype}"
+            error = True
+        if args.LVS:
+            string_error += " but LVS is set to True and it should be False"
+            error = True
+        if error:
+            raise ValueError(string_error)
+
+            
     # args.host_name = os.uname()[1] # For windows does not work
     args.host_name = socket.gethostname()
 
@@ -634,6 +654,8 @@ def main(args):
     best_miou = 100
 
     torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
     args.img_path, args.model_path, args.exp_path, args.links_path, args.home_models_path = set_path(args)
@@ -770,6 +792,10 @@ def main(args):
         tic = time.time()
         np.random.seed(epoch)
         random.seed(epoch)
+        torch.manual_seed(epoch)
+        torch.cuda.manual_seed(args.seed)
+        torch.cuda.manual_seed_all(epoch)
+        
         print('Epoch: %d/%d' % (epoch, args.epochs))
         if args.mem_efficient:
             gc.collect()

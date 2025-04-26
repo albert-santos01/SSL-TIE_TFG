@@ -949,7 +949,7 @@ class MatchmapVideoGenerator:
 
         matchmap_np = self.matchmap.cpu().numpy()
         n_frames = matchmap_np.shape[0]
-        self.create_video_f(img_np, matchmap_np, output_path, fps=n_frames/10) # 10 sec duration
+        self.create_video_f(img_np, matchmap_np, output_path, fps=n_frames/20.48) # 10 sec duration
 
 
     def add_audio_to_video(self, video_path, audio_path):

@@ -2217,7 +2217,149 @@ Things we have to do:
     2. Apply the L2 normalization
     3. Throw model
 3. Ablation study of LVS params
-4. Make parameters learnable
+4. Make parameters learnable (Another model and do if args.x import modelx as model kachow)
 5. Time regularisation
 6. Siamese
 
+
+fMISA is still not being able to be reproduced, I have no idea for what's happening
+LVS seems to be reproducable, thus, lets do the ablation study, the parameters of the first run are the following:
+"tri_map": true,
+"Neg": true,
+"epsilon": 0.65,
+"epsilon2": 0.4,
+
+So now we do:
+--epsilon 0.5 \
+--espilon2 0.35 \
+trimap and neg, (recall that neg is hard negatives, backgrounds)
+call it `LVSa1`
+
+Debugging notes
+Nothing seems out of the normal order, we made another repo restore it to the version where LVS worked and MISA presumably too.
+We setted all the seed, even the ones that lacked at each epoch
+By debugging, we had the same results, Old and Current
+We launched two jobs to see if the model really with both, if not, Ill checkout where fMISA was madeee  
+
+``LVSa1`` is givin astonishing results compared to LVS normal, I think it is pretty interesting to study the effects of the parameters
+
+### 25/04
+5 days left...
+
+`LVSa1` finished and gave better results. However, qualitatively they are worse, given the quality of the videos. Time to test them.
+
+TO do:
+- we have to prepare the reunion
+- check how can we fix fMISA
+- run truncate
+- run LVSa2
+- Implement approaches that we learned
+
+#### Reunió
+- Si està Xavi, recap primordial:
+    - Situació d'abans: 
+        - Models no entrenen
+        - La meva quota al cluster perillava
+        - Havíem de d'aplicar nou processament d'audio obtenir els 128 frames de similaritat
+    - Ara:
+        - specs de DAVEnet han fet que els models entrenin amb lr 1e-4
+        - L'operació de crossmodal retrieval no és pot fer en el run de l'entrenament
+            - Tensor de 97 Gb (malgastament de recursos) -> utilitzar partició de cpus efficientment
+        - Models testejats:
+            - SISA
+                - El pitjor ni val loss ni recalls
+            - S2M epoch or step
+                - Val loss molt guay però recalls fan un canvi brutal al fer el switch
+                - El millor el que fa el switch a la meitat de l'epoch
+                - Això es fa per la teoria que ajuda als gradients a orientar-se (currículum learning)
+            - fMISA
+                - Com S2Ms1/2 
+                - Vol dir que el MISA es lo millor
+            - LVS
+                - Implementat (idea que es un mix de SISA amb MISA)
+                - Millor val loss
+                - el més ràpid a convergir
+                - Recall semblant a SISA
+                - Videos horribles
+                    - Teoria albert el model li costa entendre bé els hard negatives, Background, per la naturalesa de PlacesAUDIO massa
+                    - Solució, Currículum Learning
+        - Els models els hi afecta molt el final:
+            - Problema del processament de DAVEnet
+            - DAVEnet els trunca
+            - Hamilton castiga al model when silence
+            - Nosaltres: Probar les dues coses
+
+        - He reproduït DAVEnet Harwart 2018
+            - Fatal? Ara ho parlem
+    - Suposo que em deixo algo:
+        - Inferencies: Entendre bé els significat dels frames
+
+Desde el dimarts:
+- Gràcies a mapejar els silencis al similarity domain. Descobert el perquè de les inferències anaven avançades. El fps ha de ser 6.25 20.48 segons audio dona 2048 stft frames que 128 downsampling de 4
+
+- He reproduir DAVEnet.
+    - `RESULTS comparison`:
+    - Considering that epoch 56 has the best avg_accuracy [.276]
+    - I->A @10 Paper: .291  Me: .262 
+    - A->I @10 Paper: .314  Me: .290
+    - Segurament no tinc els mateixos que el paper pq el paper es diferència molt amb el codi:
+        - Input 2048 output 128, no 1024 a 128
+        - No diuen el nombre d'epochs exacte (they say less than 150, pero tenen un while true...)
+        - Batch size al paper 128 codi 100
+        - lr decay cada 70 pero al codi 40 i ja feia overfitting al 40...
+
+    - Videos:
+        - Avegades millor i altres no
+        - Mostrar idx 10 i 40
+        - S2M too
+    
+- Detecció de silenci de manera vectoritzada ja esta implementada
+
+- Truncar l'espectrograma  no és facil
+    - aud[:,:,:nFrames] no -> tensors han de ser rectangulars...
+    - Dues maneres:
+        - Com harwarth, nested  for loops...
+        - Fer la similaritat zero als frames passats i després quan average  fer-ho associat per no fer bias
+            - Ho he aconseguit fer amb masking no fent fors adicionals
+            - He suposat que funciona comprovant que s_outsmasked > s_outs
+            - El codi d'abans fa les coses que hauria de fer o sigui el no truncat
+    - Llançat ->  No entrena, alguna cosa ha passat en el codi
+
+- Caos total el models no poden ser reproduïts
+    - Per comprovar he intentat reproduïr els resultats almenys pel començament de fMISA i negatiu, no entrena
+    - He fet mil comparacions de codi per veure que he tocat i res significant 
+    - Només el càlcul de similaritats aleshores LVS hauria d'entrenar
+        - Si, entrena reproduint lo mateix"", llavors Ablation a 
+        "tri_map": true,
+        "Neg": true,
+        "epsilon": 0.65,
+        "epsilon2": 0.4,
+
+        So now we do:
+        --epsilon 0.5 \
+        --espilon2 0.35 \
+        trimap and neg, (recall that neg is hard negatives, backgrounds)
+        call it `LVSa1`
+    - Continuem intentar trobar l'error:
+        - clonar els repos de quan fMISA era reproduible
+            - quan LVS
+            - quan fMISA original
+        - Reproduïbles però no fan lo mateix, començan a baixar més tard
+        - Primer mean tots iguals ...
+        - Mirar lo dels seeds
+    - Suposició que m'ha vingut fa una hora:
+        - S2m es primordial?
+        - Els maxims del principi, pot no funcionar...?
+        - En 10 mins ho sabrem
+    - Clar el temps a la merda CAOS TOTAL
+        - no puc fer els altres entrenaments ni començar a redactar, el problema segueix xd
+
+- Bueno resultats de LVSa1:
+    - Baixa més que el LVS
+    - Recall, ni idea... s'està testejant
+    - videos horribles
+
+- Comentar treball
+    - emocionalment fatal 24/7 tfg
+
+            

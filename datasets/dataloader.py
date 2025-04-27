@@ -132,6 +132,83 @@ class AVDataset(ABC, Dataset):
     def _get_audio(self,file):
         pass
 
+    def get_silence_vector(self, y, sim_frames, sr=16000, threshold=-50, min_silence_length=0.5):
+        """
+            Harcoded to DAVEnet spectrograms and that there are 4 downsamplings in the audio encoder
+            Therefore:
+                - STFT frames: 2048 (window time shift of 0.01) 
+                - Output T : 128 (scale by 1/16)
+        """    
+        
+        peak = np.max(np.abs(y))
+        y_db = 20*np.log10(np.abs(y)/peak + 1e-10)
+        
+        # Create a binary mask where True represents samples below threshold
+        silence_mask = y_db < threshold
+        
+        # Find the indices where the mask changes (silence starts or ends)
+        padded_mask = np.concatenate(([False], silence_mask, [False]))
+        changes = np.where(padded_mask[1:] != padded_mask[:-1])[0]
+        
+        # Group these indices into pairs (start, end)
+        starts = changes[0::2]
+        ends = changes[1::2]
+        
+        # Filter out silence segments that are too short
+        min_samples = int(min_silence_length * sr)
+        long_enough = (ends - starts) >= min_samples
+        
+        # Convert sample indices to time in seconds
+        starts_filtered = starts[long_enough] / sr
+        ends_filtered = ends[long_enough] / sr
+        
+        
+        # Create the binary silence vector
+        silence_vector = np.zeros(128)
+        
+        # Mark regions with silence as 1
+        if len(starts_filtered)> 0: 
+            for start, end in zip(starts_filtered, ends_filtered):
+                # Convert time to model indices
+                start_idx = int(np.round(start / (0.01 * 16) ))
+                end_idx = int(np.round(end / (0.01 * 16)))
+                
+                # Ensure indices are within bounds
+                start_idx = max(0, min(start_idx, 128 - 1))
+                end_idx = max(0, min(end_idx, 128 - 1))
+                
+                # Set the silence regions to 1
+                silence_vector[start_idx:end_idx] = 1
+
+        if sim_frames is not None:
+            silence_vector[sim_frames:] = 1
+            
+        return torch.tensor(silence_vector.astype(int))
+            
+    def get_silence_ranges(self,y,sr=16000, threshold = -50, min_silence_length=0.5):
+        peak = np.max(np.abs(y))
+        y_db = 20*np.log10(np.abs(y)/peak + 1e-10)
+
+        # Find silent regions
+        s_ranges = []
+        start = None
+        for i in range(len(y_db)):
+            if y_db[i] < threshold:
+                if start is None:
+                    start = i
+            else:
+                if start is not None:
+                    duration = (i - start) / sr
+                    if duration >= min_silence_length:
+                        s_ranges.append((start / sr, i / sr))
+                    start = None
+        if start is not None:
+            duration = (i - start) / sr
+            if duration >= min_silence_length:
+                s_ranges.append((start / sr, len(y_db) / sr))
+        return s_ranges
+    
+
     def preemphasis(self,signal,coeff=0.97):
         """perform preemphasis on the input signal.
         
@@ -153,7 +230,7 @@ class AVDataset(ABC, Dataset):
         num_mel_bins = self.audio_conf.get('num_mel_bins', 40)
         target_length = self.audio_conf.get('target_length', 2048)
         use_raw_length = self.audio_conf.get('use_raw_length', False)
-        padval = self.audio_conf.get('padval', 0)
+        padval = self.args.padval_spec
         fmin = self.audio_conf.get('fmin', 20)
         n_fft = self.audio_conf.get('n_fft', int(sample_rate * window_size))
         win_length = int(sample_rate * window_size)
@@ -183,12 +260,28 @@ class AVDataset(ABC, Dataset):
         if p > 0:
             logspec = np.pad(logspec, ((0,0),(0,p)), 'constant',
                 constant_values=(padval,padval))
+            
         elif p < 0:
             logspec = logspec[:,0:p]
             n_frames = target_length
         logspec = torch.FloatTensor(logspec)
         # return logspec, n_frames
+
+        if self.args.punish_silence:
+            if self.args.big_temp_dim:
+                reduction = 8
+            else:
+                reduction = 16
+            if p > 0:
+                sim_frames = int(n_frames / reduction)
+            else:
+                sim_frames = None
+
+            silent_vector = self.get_silence_vector(y,sim_frames=sim_frames, sr=sr, threshold=self.args.threshold_silence, min_silence_length=self.args.min_silence)
+        
+            return logspec.unsqueeze(0), silent_vector.unsqueeze(0)
         return logspec.unsqueeze(0)
+        
 
     def _load_audio_SSL_TIE(self,file):
         samples, samplerate = torchaudio.load(file)
@@ -231,7 +324,10 @@ class AVDataset(ABC, Dataset):
         # frame_ori = np.array(self._load_frame(frame_path))
 
         if self.args.spec_DAVENet:
-            spectrogram = self._load_audio_DAVENet(audio_path)
+            if self.args.punish_silence:
+                spectrogram, silent_vector = self._load_audio_DAVENet(audio_path)
+            else: 
+                spectrogram = self._load_audio_DAVENet(audio_path)
         else:
             spectrogram = self._load_audio_SSL_TIE(audio_path)
              
@@ -240,6 +336,8 @@ class AVDataset(ABC, Dataset):
         else:
             audio = 'None'
         # return frame, spectrogram, audio, file, torch.tensor(frame_ori)
+        if self.args.punish_silence:
+            return frame, spectrogram, audio, silent_vector
         return frame, spectrogram, audio
 
 

@@ -413,6 +413,7 @@ def validate(val_loader, model, criterion, device, epoch, args):
             image, spec, audio_path, silence_vectors = batch_unpacker(batch,args)
             spec = Variable(spec).to(device, non_blocking=True)
             image = Variable(image).to(device, non_blocking=True)
+            silence_vectors = Variable(silence_vectors).to(device, non_blocking=True) if args.punish_silence else None
             B = image.size(0)
             # vis_loader(image, spec,idx)
 

@@ -162,6 +162,44 @@ def set_path(args):
         os.makedirs(model_path)
     return img_path, model_path, exp_path, links_path, home_models_path
 
+def _print_embeds(args,image,imgs_out,spec,auds_out):
+    if args.print_embeds:
+            print(f"-----------IN imgs: {image.shape}, -> OUT {imgs_out.shape}")
+            print(f"-----------IN auds: {spec.shape}, -> OUT {auds_out.shape}")
+            args.print_embeds = False
+
+def _S2M_step(args,idx,B,N):
+    if args.SISA_2_MISA_step !=0 and args.SISA_2_MISA_step <= idx:
+            print(f" - Changing from {args.simtype} to MISA at step {idx}, considering batch size {B} and {N} batches")
+            args.simtype = 'MISA'
+            args.SISA_2_MISA_step = 0
+
+def _S2M_epoch(args,epoch):
+    if args.SISA_2_MISA_epoch != 0 and args.SISA_2_MISA_epoch <= epoch:
+        print(f" - Changing from {args.simtype} to MISA at epoch {epoch} -")
+        args.simtype = 'MISA'
+        args.SISA_2_MISA_epoch = 0
+    
+def _M2LVS_epoch(args,epoch):
+    print(f" MISA to LVS is setted at {args.MISA_2_LVS_epoch}")
+    if args.MISA_2_LVS_epoch != 0 and args.MISA_2_LVS_epoch <= epoch:
+        print(f" - Changing from {args.simtype} to LVS at epoch {epoch} -")
+        args.LVS = True
+        args.MISA_2_LVS_epoch = 0
+
+def _check_M2LVS(args):
+    if args.MISA_2_LVS_epoch != 0:
+        error = False
+        string_error = "MISA_2_LVS_epoch is set to {args.MISA_2_LVS_epoch}" 
+        if args.simtype != "MISA":
+            string_error += f" but simtype is set to {args.simtype}"
+            error = True
+        if args.LVS:
+            string_error += " but LVS is set to True and it should be False"
+            error = True
+        if error:
+            raise ValueError(string_error)
+
 
 def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     # torch.set_grad_enabled(True)
@@ -189,17 +227,8 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     
     loss_debug = 0
 
-    if args.SISA_2_MISA_epoch != 0 and args.SISA_2_MISA_epoch <= epoch:
-        print(f" - Changing from {args.simtype} to MISA at epoch {epoch} -")
-        args.simtype = 'MISA'
-        args.SISA_2_MISA_epoch = 0
-    
-    if args.MISA_2_LVS_epoch != 0 and args.MISA_2_LVS_epoch <= epoch:
-        print(f" - Changing from {args.simtype} to LVS at epoch {epoch} -")
-        args.LVS = True
-        args.MISA_2_LVS_epoch = 0
-        
-
+    _S2M_epoch(args,epoch)
+    _M2LVS_epoch(args,epoch)
 
 
     for idx, (image, spec, _ ) in enumerate(train_loader):
@@ -211,15 +240,9 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         # First branch of the siamese network
         imgs_out, auds_out = model(image.float(), spec.float(), args, mode='train')
         
-        if args.print_embeds:
-            print(f"-----------IN imgs: {image.shape}, -> OUT {imgs_out.shape}")
-            print(f"-----------IN auds: {spec.shape}, -> OUT {auds_out.shape}")
-            args.print_embeds = False
+        _print_embeds(args,image,imgs_out,spec,auds_out)
                     
-        if args.SISA_2_MISA_step !=0 and args.SISA_2_MISA_step <= idx:
-            print(f" - Changing from {args.simtype} to MISA at step {idx}, considering batch size {B} and {len(train_loader)} batches")
-            args.simtype = 'MISA'
-            args.SISA_2_MISA_step = 0
+        _S2M_step(args,idx,B,len(train_loader))
             
 
         loss_cl = infoNCE_loss(imgs_out,auds_out, args)        
@@ -624,17 +647,7 @@ def main(args):
     if args.debug:
         args.n_threads=0
 
-    if args.MISA_2_LVS_epoch != 0:
-        error = False
-        string_error = "MISA_2_LVS_epoch is set to {args.MISA_2_LVS_epoch}" 
-        if args.simtype != "MISA":
-            string_error += f" but simtype is set to {args.simtype}"
-            error = True
-        if args.LVS:
-            string_error += " but LVS is set to True and it should be False"
-            error = True
-        if error:
-            raise ValueError(string_error)
+    _check_M2LVS(args)
 
             
     # args.host_name = os.uname()[1] # For windows does not work

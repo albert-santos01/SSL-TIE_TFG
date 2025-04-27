@@ -279,7 +279,7 @@ class AVDataset(ABC, Dataset):
 
             silent_vector = self.get_silence_vector(y,sim_frames=sim_frames, sr=sr, threshold=self.args.threshold_silence, min_silence_length=self.args.min_silence)
         
-            return logspec.unsqueeze(0), silent_vector.unsqueeze(0)
+            return logspec.unsqueeze(0), silent_vector
         return logspec.unsqueeze(0)
         
 

@@ -355,13 +355,32 @@ def main(args):
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False,\
         num_workers=args.n_threads, drop_last=True, pin_memory=True)
 
-
+    if args.MISA_2_LVS_epoch != 0:
+        print(f"MISA_2_LVS_epoch at {args.MISA_2_LVS_epoch}")
+        error = False
+        string_error = "MISA_2_LVS_epoch is set to {args.MISA_2_LVS_epoch}" 
+        if args.simtype != "MISA":
+            string_error += f" but simtype is set to {args.simtype}"
+            error = True
+        if args.LVS:
+            string_error += " but LVS is set to True and it should be False"
+            error = True
+        if error:
+            raise ValueError(string_error)
+    
+        
     #Test every model in the json
     for epoch in keys[1:]:
         if args.SISA_2_MISA_epoch != 0 and args.SISA_2_MISA_epoch <= int(epoch):
             print(f" - Changing from {args.simtype} to MISA at epoch {epoch} -")
             args.simtype = 'MISA'
             args.SISA_2_MISA_epoch = 0
+
+        if args.MISA_2_LVS_epoch != 0 and args.MISA_2_LVS_epoch <= int(epoch):
+            print(f" - Changing from {args.simtype} to LVS at epoch {epoch} -")
+            args.LVS = True
+            args.MISA_2_LVS_epoch = 0
+
         model, device = load_model(epochs_data[epoch]['weights_link'],args)
         validate(val_loader,model,None,device,int(epoch),args)
 

@@ -54,7 +54,7 @@ from tqdm import tqdm
 from utils.util import topk_accuracies, similarity_matrix_bxb, \
       topk_accuracy, update_json_file, MatchmapVideoGenerator,\
       vis_loader, prepare_device, vis_heatmap_bbox, tensor2img, \
-      sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss
+      sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss, negAudio_loss
 from utils.tf_equivariance_loss import TfEquivarianceLoss
 
 from datetime import datetime
@@ -181,7 +181,6 @@ def _S2M_epoch(args,epoch):
         args.SISA_2_MISA_epoch = 0
     
 def _M2LVS_epoch(args,epoch):
-    print(f" MISA to LVS is setted at {args.MISA_2_LVS_epoch}")
     if args.MISA_2_LVS_epoch != 0 and args.MISA_2_LVS_epoch <= epoch:
         print(f" - Changing from {args.simtype} to LVS at epoch {epoch} -")
         args.LVS = True
@@ -199,6 +198,26 @@ def _check_M2LVS(args):
             error = True
         if error:
             raise ValueError(string_error)
+        
+def _log_gradients(model, args):
+    
+    if args.use_wandb and args.log_gradients:
+        grad_stats = {}
+        for name, param in model.named_parameters():
+            if param.grad is not None:
+                grad_stats[f"gradients/{name}/mean"] = param.grad.abs().mean().item()
+                grad_stats[f"gradients/{name}/max"] = param.grad.abs().max().item()
+                grad_stats[f"gradients/{name}/min"] = param.grad.abs().min().item()
+                grad_stats[f"gradients/{name}/median"] = param.grad.abs().median().item()
+        wandb.log(grad_stats)
+        
+def batch_unpacker(batch, args):
+    if args.punish_silence:
+        image, spec, audiofile, silence_vector = batch
+    else:
+        image, spec, audiofile = batch
+        silence_vector = None
+    return image, spec, audiofile, silence_vector
 
 
 def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
@@ -206,14 +225,15 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     batch_time = AverageMeter('Time',':.2f')
     data_time = AverageMeter('Data',':.2f')
     losses = AverageMeter('Loss',':.4f')
-    losses_cl = AverageMeter('Loss',':.4f')
-    losses_cl_ts = AverageMeter('Loss',':.4f')
-    losses_ts = AverageMeter('Loss',':.4f')
+    losses_cl = AverageMeter('Loss_cl',':.4f')
+    losses_cl_ts = AverageMeter('Loss_cl_ts',':.4f')
+    losses_ts = AverageMeter('Loss_ts',':.4f')
+    losses_silence = AverageMeter('Loss_silence',':.4f')
 
     progress = ProgressMeter(                             
         len(train_loader),
         # [batch_time, data_time, losses, top1_meter, top5_meter],
-        [batch_time, data_time, losses],
+        [batch_time, data_time, losses, losses_cl, losses_silence],
         prefix='Epoch:[{}]'.format(epoch))
     
     model.train()
@@ -224,6 +244,7 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     tic = time.time()
 
     lambda_trans_equiv = args.trans_equi_weight
+    lambda_neg_audio = args.neg_audio_weight
     
     loss_debug = 0
 
@@ -231,10 +252,13 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     _M2LVS_epoch(args,epoch)
 
 
-    for idx, (image, spec, _ ) in enumerate(train_loader):
+    for idx, batch in enumerate(train_loader):
+        image, spec, _ ,silence_vectors = batch_unpacker(batch,args)
+
         data_time.update(time.time() - end)
         spec = Variable(spec).to(device, non_blocking=True)
-        image = Variable(image).to(device, non_blocking=True) 
+        image = Variable(image).to(device, non_blocking=True)
+        silence_vectors = Variable(silence_vectors).to(device,non_blocking=True) 
         
         B = image.size(0)
         # First branch of the siamese network
@@ -245,7 +269,10 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         _S2M_step(args,idx,B,len(train_loader))
             
 
-        loss_cl = infoNCE_loss(imgs_out,auds_out, args)        
+        loss_cl = infoNCE_loss(imgs_out,auds_out, args)
+        loss_silence = negAudio_loss(imgs_out, auds_out, silence_vectors)  if args.punish_silence else 0  
+
+        loss = loss_cl + lambda_neg_audio * loss_silence
 
         if args.siamese:
 
@@ -280,15 +307,17 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
                             "train_loss_ts_step": loss_ts.item(), "step": wandb.run.step})
         else:
             
-            loss = loss_cl
-            loss_debug += loss.item()
-
-            #Log batch metrics to  wandb
+            #Log batch metrics to wandb
             if args.use_wandb:
-                wandb.log({ "train_loss_step": loss.item(), "step": wandb.run.step})
+                wandb.log({ "train_loss_step": loss.item(),
+                            "train_loss_cl_step": loss_cl.item(),
+                            "train_loss_silence_step": loss_silence.item(),
+                            "step": wandb.run.step})
+
 
         losses.update(loss.item(), B)
         losses_cl.update(loss_cl.item(), B)
+        losses_silence.update(loss_silence.item(), B)
         if args.siamese:
             losses_cl_ts.update(loss_cl_ts.item(), B) 
             losses_ts.update(loss_ts.item(), B) 
@@ -301,15 +330,8 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         #             print(f"{name} - Mean: {param.grad.mean().item():.2e}, Max: {param.grad.max().item():.2e}, Min: {param.grad.min().item():.2e}, Median: {param.grad.median().item():.2e}")
         
         # raise Exception("STOP")
-        if args.use_wandb and args.log_gradients:
-            grad_stats = {}
-            for name, param in model.named_parameters():
-                if param.grad is not None:
-                    grad_stats[f"gradients/{name}/mean"] = param.grad.abs().mean().item()
-                    grad_stats[f"gradients/{name}/max"] = param.grad.abs().max().item()
-                    grad_stats[f"gradients/{name}/min"] = param.grad.abs().min().item()
-                    grad_stats[f"gradients/{name}/median"] = param.grad.abs().median().item()
-            wandb.log(grad_stats)
+        _log_gradients(model, args)
+        
                 
         optim.step()
 
@@ -328,8 +350,6 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
                 
 
     wandb.log({"T-epoch": time.time()-tic, "epoch": epoch}) if args.use_wandb else None
-    print('Epoch: [{0}][{1}/{2}]\t'
-        'T-epoch:{t:.2f}\t'.format(epoch, idx, len(train_loader), t=time.time()-tic))
 
     
     # Log the epoch metrics to # wandb
@@ -340,8 +360,23 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
                         "train_loss_cl_epoch": losses_cl.avg, "train_loss_cl_ts_epoch": losses_cl_ts.avg,
                         "train_loss_ts_epoch": losses_ts.avg, "epoch": epoch})
         else:
-            assert losses.avg == loss_debug/len(train_loader), "Losses are not equal !"
+            
             wandb.log({"train_loss_epoch": losses.avg, "epoch": epoch})
+            wandb.log({"train_loss_cl_epoch": losses_cl.avg, "epoch": epoch})
+
+        if args.punish_silence:
+            wandb.log({"train_loss_silence_epoch": losses_silence.avg, "epoch": epoch})
+
+    print('Epoch: [{0}][{1}/{2}]\t'
+        'T-epoch:{t:.2f}\t'
+        'Loss: {loss:.4f}\t'
+        'Loss_cl: {loss_cl:.4f}\t'
+        'Loss_silence: {loss_silence:.4f}'.format(
+            epoch, idx, len(train_loader), 
+            t=time.time()-tic, 
+            loss=losses.avg, 
+            loss_cl=losses_cl.avg, 
+            loss_silence=losses_silence.avg))
         
     args.train_logger.log('train Epoch: [{0}][{1}/{2}]\t'
                     'T-epoch:{t:.2f}\t'.format(epoch, idx, len(train_loader), t=time.time()-tic))
@@ -358,11 +393,13 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
 def validate(val_loader, model, criterion, device, epoch, args):
     batch_time = AverageMeter()
     losses = AverageMeter()
+    losses_cl = AverageMeter()
+    losses_silence = AverageMeter()
     
     img_embs_all = []
     aud_embs_all = []
 
-    
+    lambda_neg_audio = args.neg_audio_weight
 
     tic = time.time()
     save_dir = os.path.join(args.img_path, "val_imgs", str(epoch)) 
@@ -372,8 +409,8 @@ def validate(val_loader, model, criterion, device, epoch, args):
     video_gen = False
     with torch.no_grad():
         end = time.time()
-        for idx, (image, spec, audio_path) in tqdm(enumerate(val_loader), total=len(val_loader)):
-
+        for idx, batch in tqdm(enumerate(val_loader), total=len(val_loader)):
+            image, spec, audio_path, silence_vectors = batch_unpacker(batch,args)
             spec = Variable(spec).to(device, non_blocking=True)
             image = Variable(image).to(device, non_blocking=True)
             B = image.size(0)
@@ -381,17 +418,22 @@ def validate(val_loader, model, criterion, device, epoch, args):
 
             imgs_out, auds_out = model(image.float(), spec.float(), args, mode='val')
 
-            imgs_out = imgs_out.to('cpu').detach()
-            auds_out = auds_out.to('cpu').detach()
+            imgs_out = imgs_out.detach()
+            auds_out = auds_out.detach()
  
 
             loss_cl = infoNCE_loss(imgs_out,auds_out, args)
+            loss_silence = negAudio_loss(imgs_out, auds_out, silence_vectors)  if args.punish_silence else 0
+            loss = loss_cl + lambda_neg_audio * loss_silence
+
 
             if args.cross_modal_freq != -1 and (epoch % args.cross_modal_freq) == 0:
                 img_embs_all.append(imgs_out)
                 aud_embs_all.append(auds_out)
 
-            losses.update(loss_cl.item(), B)
+            losses_cl.update(loss_cl.item(), B)
+            losses_silence.update(loss_silence.item(), B)
+            losses.update(loss.item(), B)
            
             batch_time.update(time.time() - end)
             end = time.time()
@@ -469,12 +511,14 @@ def validate(val_loader, model, criterion, device, epoch, args):
         if args.use_wandb:
             wandb.log({
                 "val_loss": losses.avg,
+                "val_loss_cl": losses_cl.avg,
+                "val_loss_silence": losses_silence.avg,
                 "epoch": epoch
             })
 
     print('Epoch: [{0}]\t Eval '
-          'Loss: {loss.avg:.4f}  \t T-epoch: {t:.2f} \t'
-          .format(epoch, loss=losses, t=time.time()-tic))
+          'Loss: {loss.avg:.4f}  \t Loss_cl: {loss_cl.avg:.4f} \t Loss_silence: {loss_silence.avg:.4f} \t T-epoch: {t:.2f} \t'
+          .format(epoch, loss=losses, loss_cl=losses_cl, loss_silence=losses_silence, t=time.time()-tic))
     
     if args.cross_modal_freq != -1 and (epoch % args.cross_modal_freq) == 0:
         print(' * Audio R@10 {A_r10:.3f} Image R@10 {I_r10:.3f} over {N:d} validation pairs'

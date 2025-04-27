@@ -543,7 +543,7 @@ def infoNCE_loss_LVS(image_outputs, audio_outputs, args):
 
     m = nn.Sigmoid()
     # avgpool = nn.AdaptiveMaxPool2d((1, 1)) 
-
+                                                #TODO: why in this order...
     Sii = torch.einsum('bchw, bct -> bthw',image_outputs, audio_outputs).unsqueeze(1) # [B,1,T,H,W]
     Sij = torch.einsum('bct, pchw -> bpthw', audio_outputs, image_outputs) # [B,B,T,H,W]
     # Sij_avg = avgpool(Sij).view(B,B)  # [B,B]
@@ -614,6 +614,38 @@ def infoNCE_loss(image_outputs, audio_outputs,args,return_S=False):
         return loss
 
 import torch
+
+def negAudio_loss(image_outputs, audio_outputs, silence_vectors):
+    """
+        images_outputs (B x C x H x W) 
+        audio_outputs  (B x C x T)
+        silence_vectors (B x T)
+        Assumption: the channel dimension is already normalized
+        Returns the InfoNCE loss
+    """
+    assert (len(image_outputs.shape) == 4)
+    assert (len(audio_outputs.shape) == 3)
+    assert (len(silence_vectors.shape) == 2)
+    assert (audio_outputs.size(2) == silence_vectors.size(1))
+
+    # Compute volumes and immediately square them
+    volumes = torch.einsum('bct, bchw -> bthw', audio_outputs, image_outputs)
+    volumes.pow_(2)  # In-place square
+    
+    # Reshape silence_vectors for broadcasting
+    B, T = silence_vectors.shape
+    weights = silence_vectors.view(B, T, 1, 1)
+    
+    # Calculate weighted sum directly
+    weighted_sum = (volumes * weights).sum(dim=1)
+    
+    # Calculate sum of weights and the final loss
+    sum_weights = weights.sum(dim=1)
+    loss = (weighted_sum / (sum_weights + 1e-8)).mean()
+    
+    return loss
+
+
 
 def topk_accuracy(sims, k=5):
     """

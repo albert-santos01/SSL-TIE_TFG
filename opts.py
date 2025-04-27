@@ -37,6 +37,12 @@ def get_arguments():
     parser.add_argument('--siamese', action='store_true', help='Siamese network')
     parser.set_defaults(siamese=False)
 
+    parser.add_argument('--punish_silence', action='store_true', help='To punish the models activation when silence')
+    parser.set_defaults(punish_silence=False)
+    parser.add_argument('--padval_spec', default=0, type=int, help="Padding value for the spectrogram")
+    parser.add_argument('--threshold_silence', default=-43, type=float, help="Threshold for silence in dBFS")
+    parser.add_argument('--min_silence', default=0.3, type=float, help="Minimum silence in seconds")
+
     parser.add_argument('--placesAudio', default=None, type=str, help='Root directory path of metadata PlacesAudio')
     parser.add_argument('--mem_efficient', action='store_true', help='Use cuda')
     parser.set_defaults(mem_efficient=False)

@@ -210,6 +210,18 @@ def _log_gradients(model, args):
                 grad_stats[f"gradients/{name}/min"] = param.grad.abs().min().item()
                 grad_stats[f"gradients/{name}/median"] = param.grad.abs().median().item()
         wandb.log(grad_stats)
+
+def _negAudio_loss_handler(args,imgs_out,auds_out,silence_vectors):
+    if args.punish_silence:
+        loss_silence, mean_sim_pow2 = negAudio_loss(imgs_out, auds_out, silence_vectors)
+    else:
+        volumes = torch.einsum('bct, bchw -> bthw', auds_out, imgs_out).detach()
+        volumes = volumes.pow(2)
+        mean_sim_pow2 = volumes.mean()
+        loss_silence = torch.tensor(0.0, device=volumes.device)  # Use a tensor with the same device as volumes
+
+    return loss_silence, mean_sim_pow2
+
         
 def batch_unpacker(batch, args):
     if args.punish_silence:
@@ -270,7 +282,7 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
             
 
         loss_cl = infoNCE_loss(imgs_out,auds_out, args)
-        loss_silence = negAudio_loss(imgs_out, auds_out, silence_vectors)  if args.punish_silence else 0  
+        loss_silence, mean_sim_pow2 = _negAudio_loss_handler(args,imgs_out,auds_out,silence_vectors)
 
         loss = loss_cl + lambda_neg_audio * loss_silence
 
@@ -312,6 +324,7 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
                 wandb.log({ "train_loss_step": loss.item(),
                             "train_loss_cl_step": loss_cl.item(),
                             "train_loss_silence_step": loss_silence.item(),
+                            "avg(s(a,v)^2) step": mean_sim_pow2.item(),
                             "step": wandb.run.step})
 
 

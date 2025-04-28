@@ -2363,3 +2363,98 @@ Desde el dimarts:
     - emocionalment fatal 24/7 tfg
 
             
+### 26/04
+1. We could also throw S2Me10 with new code to check if it really works [ItDoesn'twork:(]
+    1. Throw truncate matchmap with S2Me10 if it works three epochs...[BetterNot]
+2. Throw MISA to LVS with `old1` code [Done]
+3. Check LVSa1 test results and say which weights do i have to download [Done]
+4. Send template to gloria to get the full space
+5. Do another branch at `old1 code` and introduce silence...
+
+
+1. `Check if main brach doesn't work`
+    Just thrown the S2Me10 for 3 epochs, basically it will be fSISA. recall that somehow it didn't work in the past and it was fixed by detaching the val features... and changing again to val_video_freq to 10
+    
+    `Interesting`: It is not that it takes more `steps` to the model to decrease the train_loss_step graph it is just that these new models have to do more steps (wandb.logs) than the previous ones of course.
+
+    We should make those graphs according with an x axis associated to the number of training samples already seen
+
+    From this i would like to see a video, instead of waiting two hours i could download the weights after doing an epoch
+
+2. `MISA to LVS`
+    made a new branch called working_version and it changing the code from there. It is published to github 
+    To debug it that it wont go to MISA just do a batch and then set args.LVS let see what happens It would definately work
+    
+    `when should we switch`
+    From epoch 3 MISA already knows how to localise but the recall values are incrediblely low, thus
+    At epoch 12 we have the change at val loss, Since the recall is the highest because of how it localises it may add ways to decrease the val loss
+        - What I think that it is going to happen is that when there's silence it will start to localise the background and the recall will go down really easy
+    
+    Just think that if we don't calculate the similarity when there's silence I assume that the recall will go crazy and this is because adding similarity when there's silence it will lead to add redundancy. However maybe the model already knows how to avoid this bias
+        fMISA in my opinion it only changes its localisation in the appearance of a new word.
+        
+
+3. `LVSa1`
+    - epoch 32 best recall but really bad video 2nd best val
+    - epoch 25 best val, videos are better than 32, there's a spike in recall
+        - Super interesting note: The model when there's silence it is integrating everything but the subjects
+            - It would be interesting to see how the silence cancellation works here
+            -<Val loss here> is veeeery confusing, at the a model can have a better similarity score if when there's silence it integrates everything that is background, of course this average in general works...
+    At epoch 32 everything seems more sparse that's probalby
+    - less trained models do the same as epoch 25 but they localise more general ... therefore epoch 25 is a better model
+    [FINISHED]
+
+5. `Punish silence`
+    - We found out that maybe we should find the silent ranges after the preemphasis because the signal has reduced, probably noise and redundancy. But I would definately do an ablation study of what works best
+    - At the end we are sending the vector every time in  the getime of the data loader
+    - Even though it wasn't a significant change claude avoided the for loop again
+    - the sim vector is also truncated given nframes well it seems that theres a problem
+        - it is not possible that the audio is shorter than 20.48 and we have silence after nframes, check it out 
+    CHECK ALL THE THINGS TO COMMIT specially the OPT.PY add this new args like the padding to the slurm
+
+
+### 27/04/2025
+
+Silence is almost finished, we need to fix it, and do a check. I would do a toy example or download a the first sample of subset and see the audio, the way to do it could be by changing none to the getitem
+We should start writing today and do a minimini plan of the trip in barcelona, in special attention to the friday's party. Write again the email in a more friendly way to cristina.
+MISA2LVS is now being tested. Code that it is still remaining are the learnable parameters, Siamese, time regularisation...
+
+ROADMAP:
+1. Fix silence
+    1. Fix the nframes[x]
+    2. avoid hardcoding[pass]
+    3. Do toy example[itseems]
+    - modify the getitem
+    - Add the l2 normalization
+    4. Throw
+2. Start writing (we could go to Barcelona)
+    1. Open the template
+    2. Do the skeleton
+    3. Put some ideas in each bullet
+    4. Start writing the related work?
+3. Mini plan
+    1. Comunicate your plan
+
+
+1. `FIX THE SILENCE`
+    We fixed it, it was basically using the whole duration to calculate the stft regardless of the padding
+    `The code is hardcoded` It is futile to make it modular so it assumes that the target length is 2048 -> 128
+
+    2. About to debug
+    It works and all the modifications before changing the main were correctedly computed
+
+    Now we have to debug if the code is correct
+    `New task` WE have to find a nice lambda for the silence regularizer
+
+    4. throw
+    Sim loss is 2.87 in debugging
+    and silence loss is 0.011
+    the normal mean is 0.010
+    This is not alright, thus,  we are going to throw first a lambda of 1  and see how it evolves becase something like *30 maybe it makes such significant difference to not let the model activate
+    but padval_spec -80 activates a little more
+
+    Throwing an example of 2 epochs showed that the silence loss is rapidly decreased
+    I think that the model is training,  but let's check more safely, we need more steps
+
+    
+

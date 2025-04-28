@@ -631,6 +631,7 @@ def negAudio_loss(image_outputs, audio_outputs, silence_vectors):
     # Compute volumes and immediately square them
     volumes = torch.einsum('bct, bchw -> bthw', audio_outputs, image_outputs)
     volumes = volumes.pow(2)
+    normal_mean = volumes.mean().detach().clone()
     
     # Reshape silence_vectors for broadcasting
     B, T = silence_vectors.shape
@@ -643,7 +644,7 @@ def negAudio_loss(image_outputs, audio_outputs, silence_vectors):
     sum_weights = weights.sum(dim=1)
     loss = (weighted_sum / (sum_weights + 1e-8)).mean()
     
-    return loss
+    return loss, normal_mean
 
 
 

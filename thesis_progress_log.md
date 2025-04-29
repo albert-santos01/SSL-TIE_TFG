@@ -2456,5 +2456,23 @@ ROADMAP:
     Throwing an example of 2 epochs showed that the silence loss is rapidly decreased
     I think that the model is training,  but let's check more safely, we need more steps
 
-    
+### 28/04/2025
 
+Idea of report while meditating: Give a middle qualitative comparative with how is the trimap constructed when there's silence and when there isn't when it's punished.
+
+So today is mean't to be used for start writing. Before I could do some code that would be relevant for the silence analysis.
+
+TODAY:
+1. Do graphs of average similarity vs weighted y silence frames
+2. Throw MISA-Sil with lambda 100
+3. Do skeleton
+4. Write a lot of Related work
+5. Do idea of miniplan.
+6. Duolingo
+
+`VIDEOS for M2LVSe12`
+- 33 because it has the best Acc
+- 25 has the best val loss
+- 20 good video
+- It is interesting to see that the more epochs the more that model is looking at the middle only. and the less the models moves a lot more, i really recommend to analyse the videos according from 10 to 13 (12 is the switch)
+- lets download the switch also

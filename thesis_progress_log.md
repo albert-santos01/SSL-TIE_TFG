@@ -2476,3 +2476,49 @@ TODAY:
 - 20 good video
 - It is interesting to see that the more epochs the more that model is looking at the middle only. and the less the models moves a lot more, i really recommend to analyse the videos according from 10 to 13 (12 is the switch)
 - lets download the switch also
+
+
+### Reunion
+1. Última oportunitat el codi nou amb reproducció de S2Me10 i no
+
+2. Fer una nova `branch` desde últim model correctament entrenat (LVS):
+    - MISA funciona
+    - tot es reproduible
+
+3. `MISA to LVS`
+    - El codi una mica raro pq els he definit com diferent losses
+        - Debuguejat i tot correcte
+    
+    - Quan fer el canvi:
+        - Mostrar gràfica
+        - Canvi al epoch 12
+        - i ja al 3 ja localitza
+        Supposisició k vaig fer una vegada de LVS:
+        - What I think that it is going to happen is that when there's silence or stopwords it will start to localise the background and the recall will go down really easy
+
+    - fMISA in my opinion it only changes its localisation in the appearance of a new subject word.
+
+
+4. resultats LVSa1
+--epsilon 0.5 \  
+--espilon2 0.35 \
+abans era
+"epsilon": 0.65,
+"epsilon2": 0.4,
+    - epoch 32 best recall but really bad video 2nd best val
+    - epoch 25 best val, videos are better than 32, there's a spike in recall
+
+    - aquí es veu molt bé lo de subjectes vs stopwords
+
+5. Punish silence:
+    - Per detectar funció vectoritzada
+    - La solució més fàcil que he pensat es enviar els vectors del train loader
+    - Esta hardcodejat al specs de HArwarth
+    - Implementat el weighted average
+    - Al introduir el  padding de -80 el silenci agafava pes
+    - lambda 1
+    - apagada
+
+6. Resultats de M2LVS
+
+7. Esquelet de la memoria a latex

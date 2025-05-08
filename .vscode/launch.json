@@ -179,6 +179,7 @@
                 "--n_threads","0",
                 "--gpus", "0",
                 "--exp_name", "SSLTIE_subset_PlacesAudio",
+                "--not_cl_w_silence",
                 "--punish_silence",
                 "--padval_spec","-80",
                 "--eval_freq", "1",

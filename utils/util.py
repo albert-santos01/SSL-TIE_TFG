@@ -509,7 +509,7 @@ def tensor_memory_MB(tensor, name):
     print(f"Size of {name}: {size_mb:.2f} MB")
     return size_mb
 
-def similarity_matrix_bxb(img_outs, aud_outs,temp=0.07,simtype='MISA'):
+def similarity_matrix_bxb_org(img_outs, aud_outs,temp=0.07,simtype='MISA'):
     """
         img_outs (B x C x H x W) 
         aud_outs  (B x C x T)
@@ -526,6 +526,52 @@ def similarity_matrix_bxb(img_outs, aud_outs,temp=0.07,simtype='MISA'):
 
     return s_outs
 
+def similarity_matrix_bxb_sil(img_outs, aud_outs,temp=0.07,simtype='MISA',silence_vectors=None):
+    """
+        img_outs (B x C x H x W) 
+        aud_outs  (B x C x T)
+        silence_vectors (B x T)
+        Assumption: the channel dimension is already normalized
+        Returns a B x B similarity matrix: (exp(s_ij / temp))
+    """
+    assert(img_outs.dim() == 4)
+    assert(aud_outs.dim() == 3)
+    assert(silence_vectors.dim() == 2)
+    assert(aud_outs.size(2) == silence_vectors.size(1))
+    B = img_outs.size(0)
+    T = silence_vectors.size(1)
+
+    # Compute volumes
+    volumes = torch.einsum('bct, pchw -> bpthw', aud_outs, img_outs)
+
+    # Get non-silence vectors
+    ones = torch.ones_like(silence_vectors)
+    pos_non_silence = ones - silence_vectors
+    pos_non_silence = pos_non_silence.view(B, 1, T, 1, 1)  
+
+    # Cancel frames that are silent (1s are non-silence)
+    volumes = volumes * pos_non_silence
+    
+    # Compute the similarity matrix
+    s_outs = volumemap_sim(volumes, simtype)
+    s_outs = torch.exp(s_outs / temp)
+    
+    return s_outs
+
+def similarity_matrix_bxb(img_outs, aud_outs,temp=0.07,simtype='MISA',silence_vectors=None):
+    """
+        img_outs (B x C x H x W) 
+        aud_outs  (B x C x T)
+        Assumption: the channel dimension is already normalized
+        Returns a B x B similarity matrix: (exp(s_ij / temp))
+    """
+    assert(img_outs.dim() == 4)
+    assert(aud_outs.dim() == 3)
+    if silence_vectors is not None:
+        return similarity_matrix_bxb_sil(img_outs, aud_outs,temp,simtype,silence_vectors)
+    else:
+        return similarity_matrix_bxb_org(img_outs, aud_outs,temp,simtype)
+        
 
 def infoNCE_loss_LVS(image_outputs, audio_outputs, args):
     """
@@ -579,7 +625,7 @@ def infoNCE_loss_LVS(image_outputs, audio_outputs, args):
 
 
 
-def infoNCE_loss(image_outputs, audio_outputs,args,return_S=False):
+def infoNCE_loss(image_outputs, audio_outputs, args, silence_vectors=None, return_S=False):
     """
         images_outputs (B x C x H x W) 
         audio_outputs  (B x C x T)
@@ -590,6 +636,10 @@ def infoNCE_loss(image_outputs, audio_outputs,args,return_S=False):
         return infoNCE_loss_LVS(image_outputs,audio_outputs,args)
     if args.big_temp_dim:
         assert (audio_outputs.size(2) > 70)
+    if args.not_cl_w_silence:
+        assert (silence_vectors is not None)
+    else:
+        silence_vectors = None
 
     assert (len(image_outputs.shape) == 4)
     assert (len(audio_outputs.shape) == 3)
@@ -598,7 +648,7 @@ def infoNCE_loss(image_outputs, audio_outputs,args,return_S=False):
     B = image_outputs.size(0)
     mask = torch.eye(B, device=image_outputs.device)
 
-    sims =  similarity_matrix_bxb(image_outputs, audio_outputs,args.temperature,args.simtype)
+    sims =  similarity_matrix_bxb(image_outputs, audio_outputs,args.temperature,args.simtype,silence_vectors)
     pos = sims * mask
     neg = sims * (1 - mask)
 

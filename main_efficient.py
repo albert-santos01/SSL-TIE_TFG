@@ -215,8 +215,8 @@ def _negAudio_loss_handler(args,imgs_out,auds_out,silence_vectors):
     if args.punish_silence:
         loss_silence, mean_sim_pow2 = negAudio_loss(imgs_out, auds_out, silence_vectors)
     else:
-        volumes = torch.einsum('bct, bchw -> bthw', auds_out, imgs_out).detach()
-        volumes = volumes.pow(2)
+        volumes = torch.einsum('bct, bchw -> bthw', auds_out, imgs_out)
+        volumes = volumes.pow(2).detach()
         mean_sim_pow2 = volumes.mean()
         loss_silence = torch.tensor(0.0, device=volumes.device)  # Use a tensor with the same device as volumes
 
@@ -256,6 +256,7 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     tic = time.time()
 
     lambda_trans_equiv = args.trans_equi_weight
+    
     lambda_neg_audio = args.neg_audio_weight
     
     loss_debug = 0
@@ -270,7 +271,7 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         data_time.update(time.time() - end)
         spec = Variable(spec).to(device, non_blocking=True)
         image = Variable(image).to(device, non_blocking=True)
-        silence_vectors = Variable(silence_vectors).to(device,non_blocking=True) 
+        silence_vectors = Variable(silence_vectors).to(device,non_blocking=True)  if args.punish_silence else None
         
         B = image.size(0)
         # First branch of the siamese network
@@ -281,7 +282,7 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         _S2M_step(args,idx,B,len(train_loader))
             
 
-        loss_cl = infoNCE_loss(imgs_out,auds_out, args)
+        loss_cl = infoNCE_loss(imgs_out,auds_out, args,silence_vectors)
         loss_silence, mean_sim_pow2 = _negAudio_loss_handler(args,imgs_out,auds_out,silence_vectors)
 
         loss = loss_cl + lambda_neg_audio * loss_silence
@@ -437,7 +438,7 @@ def validate(val_loader, model, criterion, device, epoch, args):
  
 
             loss_cl = infoNCE_loss(imgs_out,auds_out, args)
-            loss_silence = negAudio_loss(imgs_out, auds_out, silence_vectors)  if args.punish_silence else 0
+            loss_silence, _ = _negAudio_loss_handler(args,imgs_out,auds_out,silence_vectors)
             loss = loss_cl + lambda_neg_audio * loss_silence
 
 

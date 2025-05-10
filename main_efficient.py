@@ -437,7 +437,7 @@ def validate(val_loader, model, criterion, device, epoch, args):
             auds_out = auds_out.detach()
  
 
-            loss_cl = infoNCE_loss(imgs_out,auds_out, args)
+            loss_cl = infoNCE_loss(imgs_out,auds_out, args,silence_vectors=silence_vectors)
             loss_silence, _ = _negAudio_loss_handler(args,imgs_out,auds_out,silence_vectors)
             loss = loss_cl + lambda_neg_audio * loss_silence
 

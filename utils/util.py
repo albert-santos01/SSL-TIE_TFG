@@ -768,6 +768,121 @@ def topk_accuracies(sims, ks=[1, 5, 10]):
         results[f"I_r{k}"] = acc_v_a
 
     return results
+def normalize_volumes_all_frames(volumes):
+    """
+    Normalizes the volumes to the range [0, 1] for each frame and for each volume.
+
+    Args:
+        volumes: Tensor of shape (B, T, H, W) representing the volumes.
+
+    Returns:
+        normalized_volumes: Tensor of the same shape as input, normalized to [0, 1].
+    """
+    # Assuming volumes has shape [B, T, H, W]
+    assert len(volumes.shape) == 4, "Input volumes must have shape [B, T, H, W]"
+
+    # Compute min and max for each frame independently
+    min_vals = volumes.min(dim=2, keepdim=True)[0].min(dim=3, keepdim=True)[0]  # Shape: [B, T, 1, 1]
+    max_vals = volumes.max(dim=2, keepdim=True)[0].max(dim=3, keepdim=True)[0]  # Shape: [B, T, 1, 1]
+
+    # Handle edge case where min equals max (flat frame)
+    # Add small epsilon to avoid division by zero
+    epsilon = 1e-8
+    divisor = torch.clamp(max_vals - min_vals, min=epsilon)
+
+    # Normalize each frame to [0, 1] range
+    normalized_volumes = (volumes - min_vals) / divisor
+    return normalized_volumes
+
+def normalize_volumes(volumes):
+    """
+    Normalizes the volumes to the range [0, 1] for each volume independently in the batch across all frames.
+
+    Args:
+        volumes: Tensor of shape (B, T, H, W) representing the volumes.
+
+    Returns:
+        normalized_volumes: Tensor of the same shape as input, normalized to [0, 1].
+    """
+    # Compute min and max for each volume independently (across all T, H, W)
+    min_vals = volumes.reshape(volumes.shape[0], -1).min(dim=1, keepdim=True)[0]  # Shape: [B, 1]
+    max_vals = volumes.reshape(volumes.shape[0], -1).max(dim=1, keepdim=True)[0]  # Shape: [B, 1]
+
+    # Reshape for broadcasting
+    min_vals = min_vals.view(-1, 1, 1, 1)  # Shape: [B, 1, 1, 1]
+    max_vals = max_vals.view(-1, 1, 1, 1)  # Shape: [B, 1, 1, 1]
+
+    # Handle edge case where min equals max (flat volume)
+    epsilon = 1e-8
+    divisor = torch.clamp(max_vals - min_vals, min=epsilon)
+
+    # Normalize each volume to [0, 1] range (across all frames)
+    normalized_volumes = (volumes - min_vals) / divisor
+    return normalized_volumes
+
+def measure_pVA(silence_vectors, image_outputs, audio_outputs, nFrames):
+    """
+    Computes the pVA (percentage of Video Area) metric.
+
+    Args:
+        silence_vectors: Tensor of shape (B, T) indicating silence frames.
+        image_outputs: Tensor of shape (B, C, H, W) representing image features.
+        audio_outputs: Tensor of shape (B, C, T) representing audio features.
+        nFrames: Tensor (B,) indicating which is the first frame that -80 dB padding was started
+
+    Returns:
+        pVA_aud: percentage of Video Area for audio frames
+        pVA_pad: percentage of Video Area for padded frames
+        pVA: percentage of Video Area
+        Nt_aud: number of audio frames
+        Nt_pad: number of padded frames
+    """
+    assert (len(image_outputs.shape) == 4)
+    assert (len(audio_outputs.shape) == 3)
+    assert (len(silence_vectors.shape) == 2)
+    assert (audio_outputs.size(2) == silence_vectors.size(1))
+    B = image_outputs.size(0)
+    T = silence_vectors.size(1)
+    H = image_outputs.size(2)
+    W = image_outputs.size(3)
+    device = image_outputs.device
+
+    # Compute volumes
+    volumes = torch.einsum('bct, bchw -> bthw', audio_outputs, image_outputs)
+    
+    volumes = normalize_volumes(volumes)  # Normalize volumes to [0, 1]
+    
+    silence_vectors = silence_vectors.view(B, T, 1, 1)  # Reshape for broadcasting
+
+    # get Similarities at silent frames
+    silent_volumes = (volumes * silence_vectors)
+
+    # Mask of 1s till the padding (mask_b[x][nFrames[x]:]= 0s)
+    nFrames = torch.tensor(nFrames,device=device)
+    mask_b = torch.arange(T,device=device).view(1,T) < nFrames.view(B,1) # (B,T)
+    mask_b = mask_b.float()  # Convert bools to floats (0s and 1s)
+    aud_mask = mask_b.unsqueeze(-1).unsqueeze(-1)   # (B,T,H,W)
+
+    # Filter volumes by Audio frames and Padded frames
+        #Audio frames
+    s_volumes_aud = silent_volumes * aud_mask
+
+        # Padded frames
+    pad_mask        =   torch.ones_like(aud_mask) - aud_mask
+    s_volumes_pad   =   silent_volumes * pad_mask
+
+    # get pVA_aud
+    Nt_aud = (silence_vectors.view(B,T) * mask_b).sum()
+    pVA_aud = s_volumes_aud.sum() / (B * H * W * Nt_aud) 
+
+    # get pVA_pad
+    inv_mask_b = torch.ones_like(mask_b) - mask_b
+    Nt_pad = (silence_vectors.view(B,T) * (inv_mask_b)).sum()
+    pVA_pad = s_volumes_pad.sum() / (B * H * W * Nt_pad) 
+
+            
+    return pVA_aud, pVA_pad, pVA_aud + pVA_pad, Nt_aud, Nt_pad
+
 
 class GetSampleFromJson:
     def __init__(self, json_file, local_dir):
@@ -960,7 +1075,7 @@ class MatchmapVideoGenerator:
 
         matchmap_i = matchmap_np[frame_idx]
         matchmap_i = cv2.resize(matchmap_i, dsize=(224, 224), interpolation=cv2.INTER_LINEAR)
-        matchmap_i = self.normalize_img(matchmap_i)
+        matchmap_i = self.normalize_img(matchmap_i) if self.args.normalize_volume_thw else matchmap_i
         matchmap_i_photo = (matchmap_i * 255).astype(np.uint8)
         matchmap_i_photo = cv2.applyColorMap(matchmap_i_photo, cv2.COLORMAP_JET)
         matchmap_i_photo = cv2.addWeighted(matchmap_i_photo, 0.5, img_np, 0.5, 0)
@@ -1029,6 +1144,10 @@ class MatchmapVideoGenerator:
 
         if self.matchmap is None:
             self.matchmap = self.compute_matchmap()
+        
+        if self.args.normalize_volume_thw:
+            self.matchmap = normalize_volumes(self.matchmap.unsqueeze(0))
+            self.matchmap = self.matchmap.squeeze(0)
 
         matchmap_np = self.matchmap.cpu().numpy()
         n_frames = matchmap_np.shape[0]
@@ -1316,7 +1435,9 @@ def inference_maker(model_name, epoch, split, sample_idx, local_dir_saving):
                                       f'{model_name}-epoch{epoch}.pth.tar')
     
     # Simulate command-line arguments for loading the model
-    sys.argv = ['script_name', '--order_3_tensor', '--simtype', 'MISA']
+    #TODO: Given the string process the argumentse 
+    sys.argv = ['script_name', '--order_3_tensor', '--simtype', 'MISA'
+                '--normalize_volume_thw', '--padval_spec', '-80']
 
     args = get_arguments()
 

@@ -885,9 +885,10 @@ def measure_pVA(silence_vectors, image_outputs, audio_outputs, nFrames):
 
 
 class GetSampleFromJson:
-    def __init__(self, json_file, local_dir):
+    def __init__(self, json_file, local_dir, padvalue=0):
         self.json_file = json_file
         self.local_dir = local_dir
+        self.padvalue = padvalue
         with open(json_file, 'r') as f:
             data_json = json.load(f)
         self.data = data_json['data']
@@ -1001,7 +1002,7 @@ class GetSampleFromJson:
         num_mel_bins = self.audio_conf.get('num_mel_bins', 40)
         target_length = self.audio_conf.get('target_length', 2048)
         use_raw_length = self.audio_conf.get('use_raw_length', False)
-        padval = self.audio_conf.get('padval', 0)
+        padval = self.padvalue
         fmin = self.audio_conf.get('fmin', 20)
         n_fft = self.audio_conf.get('n_fft', int(sample_rate * window_size))
         win_length = int(sample_rate * window_size)
@@ -1075,7 +1076,10 @@ class MatchmapVideoGenerator:
 
         matchmap_i = matchmap_np[frame_idx]
         matchmap_i = cv2.resize(matchmap_i, dsize=(224, 224), interpolation=cv2.INTER_LINEAR)
-        matchmap_i = self.normalize_img(matchmap_i) if self.args.normalize_volume_thw else matchmap_i
+        if self.args.normalize_volumes_thw:
+            pass
+        else:
+            matchmap_i = self.normalize_img(matchmap_i)
         matchmap_i_photo = (matchmap_i * 255).astype(np.uint8)
         matchmap_i_photo = cv2.applyColorMap(matchmap_i_photo, cv2.COLORMAP_JET)
         matchmap_i_photo = cv2.addWeighted(matchmap_i_photo, 0.5, img_np, 0.5, 0)
@@ -1145,7 +1149,7 @@ class MatchmapVideoGenerator:
         if self.matchmap is None:
             self.matchmap = self.compute_matchmap()
         
-        if self.args.normalize_volume_thw:
+        if self.args.normalize_volumes_thw:
             self.matchmap = normalize_volumes(self.matchmap.unsqueeze(0))
             self.matchmap = self.matchmap.squeeze(0)
 
@@ -1436,11 +1440,10 @@ def inference_maker(model_name, epoch, split, sample_idx, local_dir_saving):
     
     # Simulate command-line arguments for loading the model
     #TODO: Given the string process the argumentse 
-    sys.argv = ['script_name', '--order_3_tensor', '--simtype', 'MISA'
-                '--normalize_volume_thw', '--padval_spec', '-80']
+    sys.argv = ['script_name', '--order_3_tensor', '--normalize_volumes_thw', '--padval_spec', '-80']
 
     args = get_arguments()
-
+    
     #Check if the model exist in local
     if os.path.exists(model_weights_path):
         print("The model is in local")
@@ -1460,7 +1463,7 @@ def inference_maker(model_name, epoch, split, sample_idx, local_dir_saving):
     #Check if the audio and the image of the sample index is in local
     json_file = f'garbage/{split}.json'
     if os.path.exists(json_file):
-        gs = GetSampleFromJson(json_file, local_dir_saving)
+        gs = GetSampleFromJson(json_file, local_dir_saving,padvalue=-80)
         img_local_path, aud_local_path = gs.download_sample(sample_idx)
     else:
         raise FileNotFoundError("json file not found for retrieving the samples")

@@ -54,7 +54,7 @@ from tqdm import tqdm
 from utils.util import  load_model, topk_accuracies, similarity_matrix_bxb, \
       topk_accuracy, update_json_file, MatchmapVideoGenerator,\
       vis_loader, prepare_device, vis_heatmap_bbox, tensor2img, \
-      sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss
+      sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss, measure_pVA
 from utils.tf_equivariance_loss import TfEquivarianceLoss
 
 from datetime import datetime, timedelta
@@ -166,9 +166,28 @@ def tensor_memory_MB(tensor, name):
     print(f"Size of {name}: {size_mb:.2f} MB")
     return size_mb
 
+def batch_unpacker(batch, args):
+    if args.punish_silence:
+        if args.get_nFrames:
+            image, spec, audiofile, silence_vector, nFrames = batch
+        else:
+            image, spec, audiofile, silence_vector = batch
+            nFrames = None
+    else:
+        image, spec, audiofile = batch
+        silence_vector = None
+        nFrames = None
+    return image, spec, audiofile, silence_vector, nFrames
+
+
 def validate(val_loader, model, criterion, device, epoch, args):
     batch_time = AverageMeter()
     losses = AverageMeter()
+    pVA_aud_meter = AverageMeter()
+    pVA_pad_meter = AverageMeter()
+    pVA_meter = AverageMeter()
+    Nt_pad = AverageMeter()
+    Nt_aud = AverageMeter()
     
     img_embs_all = []
     aud_embs_all = []
@@ -183,10 +202,12 @@ def validate(val_loader, model, criterion, device, epoch, args):
     video_gen = False
     with torch.no_grad():
         end = time.time()
-        for idx, (image, spec, audio_path) in tqdm(enumerate(val_loader), total=len(val_loader)):
+        for idx, batch in tqdm(enumerate(val_loader), total=len(val_loader)):
+            image, spec, audio_path, silence_vectors, nFrames = batch_unpacker(batch,args)
 
             spec = Variable(spec).to(device, non_blocking=True)
             image = Variable(image).to(device, non_blocking=True)
+            silence_vectors = Variable(silence_vectors).to(device,non_blocking=True)  if args.punish_silence else None
             B = image.size(0)
             # vis_loader(image, spec,idx)
 
@@ -197,7 +218,26 @@ def validate(val_loader, model, criterion, device, epoch, args):
  
 
             loss_cl = infoNCE_loss(imgs_out,auds_out, args)
+            
+            if args.punish_silence:
+                pVA_aud, pVA_pad, pVA, Nt_aud, Nt_pad = measure_pVA(silence_vectors, imgs_out, auds_out, nFrames)
+                pVA_aud_meter.update(pVA_aud.item(), B)
+                pVA_pad_meter.update(pVA_pad.item(), B)
+                pVA_meter.update(pVA.item(), B)
+                Nt_aud.update(Nt_aud.item(), B)
+                Nt_pad.update(Nt_pad.item(), B)
+            
+                
 
+                if args.use_wandb:
+                    wandb.log({"pVA_aud_step": pVA_aud.item(), "step": wandb.run.step})
+                    wandb.log({"pVA_pad_step": pVA_pad.item(), "step": wandb.run.step})
+                    wandb.log({"pVA_step": pVA.item(), "step": wandb.run.step})
+                    wandb.log({"Nt_aud_step": Nt_aud.item(), "step": wandb.run.step})
+                    wandb.log({"Nt_pad_step": Nt_pad.item(), "step": wandb.run.step})
+
+                #TODO: measure mIoU
+            
             if args.cross_modal_freq != -1 and (epoch % args.cross_modal_freq) == 0:
                 img_embs_all.append(imgs_out)
                 aud_embs_all.append(auds_out)
@@ -240,6 +280,7 @@ def validate(val_loader, model, criterion, device, epoch, args):
     print('Epoch: [{0}]\t Eval '
           'Loss: {loss.avg:.4f}  \t T-epoch: {t:.2f} \t'
           .format(epoch, loss=losses, t=time.time()-tic))
+
 
     if args.cross_modal_freq != -1 and (epoch % args.cross_modal_freq) == 0:
         imgs_out_all = torch.cat(img_embs_all)
@@ -284,6 +325,14 @@ def validate(val_loader, model, criterion, device, epoch, args):
             .format(A_r5=A_r5, I_r5=I_r5, N=N_examples), flush=True)
         print(' * Audio R@1 {A_r1:.3f} Image R@1 {I_r1:.3f} over {N:d} validation pairs'
             .format(A_r1=A_r1, I_r1=I_r1, N=N_examples), flush=True)
+        
+    if args.punish_silence:
+        print('-  * pVA_aud {pVA_aud:.3f} pVA_pad {pVA_pad:.3f} pVA {pVA:.3f}'
+            .format(pVA_aud=pVA_aud_meter.avg, pVA_pad=pVA_pad_meter.avg, pVA=pVA_meter.avg), flush=True)
+        print('-  * Nt_aud {Nt_aud:.3f} Nt_pad {Nt_pad:.3f} over {N:d} validation pairs'
+            .format(Nt_aud=Nt_aud.avg, Nt_pad=Nt_pad.avg, N=N_examples), flush=True)
+        
+        
     
     print(f"Time elapsed in total{time.time()-tic}")
 
@@ -343,7 +392,9 @@ def main(args):
     print(f"\tFirst epoch {keys[1]}, Last epoch {keys[-1]}")
 
     #Check if it's still available to use (7 days after its creation)
-    if not check_if_available(epochs_data):
+    if epochs_data["parameters"]== "Jose Antonio Santos":
+        args.get_nFrames = True
+    elif not check_if_available(epochs_data):
         raise RuntimeError("The model is no longer available for testing. It has exceeded the 7-day availability period.")
 
     #Dataset

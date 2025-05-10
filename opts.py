@@ -46,6 +46,11 @@ def get_arguments():
     parser.add_argument('--not_cl_w_silence', action='store_true', help='Do not use contrastive loss with silence')
     parser.set_defaults(not_cl_w_silence=False)
 
+    parser.add_argument('--get_nFrames', action='store_true', help='Pass the number of frames till the em')
+    parser.set_defaults(get_nFrames=False)
+    parser.add_argument('--normalize_volumes_thw', action='store_true', help='Normalize the similarity volumes to [0,1] across the T, H, W dimensions')
+    parser.set_defaults(normalize_volumes_thw=False)
+
     parser.add_argument('--placesAudio', default=None, type=str, help='Root directory path of metadata PlacesAudio')
     parser.add_argument('--mem_efficient', action='store_true', help='Use cuda')
     parser.set_defaults(mem_efficient=False)

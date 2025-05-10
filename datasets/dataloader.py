@@ -278,7 +278,9 @@ class AVDataset(ABC, Dataset):
                 sim_frames = None
 
             silent_vector = self.get_silence_vector(y,sim_frames=sim_frames, sr=sr, threshold=self.args.threshold_silence, min_silence_length=self.args.min_silence)
-        
+            if self.args.get_nFrames:
+                sim_frames = sim_frames or 128
+                return logspec.unsqueeze(0), silent_vector, sim_frames
             return logspec.unsqueeze(0), silent_vector
         return logspec.unsqueeze(0)
         
@@ -325,7 +327,10 @@ class AVDataset(ABC, Dataset):
 
         if self.args.spec_DAVENet:
             if self.args.punish_silence:
-                spectrogram, silent_vector = self._load_audio_DAVENet(audio_path)
+                if self.args.get_nFrames:
+                    spectrogram, silent_vector, nFrames = self._load_audio_DAVENet(audio_path)
+                else:
+                    spectrogram, silent_vector = self._load_audio_DAVENet(audio_path)
             else: 
                 spectrogram = self._load_audio_DAVENet(audio_path)
         else:
@@ -336,8 +341,12 @@ class AVDataset(ABC, Dataset):
         else:
             audio = 'None'
         # return frame, spectrogram, audio, file, torch.tensor(frame_ori)
+        
         if self.args.punish_silence:
-            return frame, spectrogram, audio, silent_vector
+            if self.args.get_nFrames:
+                return frame, spectrogram, audio, silent_vector, nFrames
+            else: 
+                return frame, spectrogram, audio, silent_vector
         return frame, spectrogram, audio
 
 

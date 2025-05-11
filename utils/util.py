@@ -1289,6 +1289,18 @@ def download_remote_file(remote_path, local_path):
     else:
         print(f"Error downloading {remote_path}: {result.stderr}")
 
+def batch_unpacker(batch, args):
+    if args.punish_silence:
+        if args.get_nFrames:
+            image, spec, audiofile, silence_vector, nFrames = batch
+        else:
+            image, spec, audiofile, silence_vector = batch
+            nFrames = None
+    else:
+        image, spec, audiofile = batch
+        silence_vector = None
+        nFrames = None
+    return image, spec, audiofile, silence_vector, nFrames
 
 def upload_file_to_cluster(local_path, remote_path):
     """

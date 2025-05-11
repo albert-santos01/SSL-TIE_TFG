@@ -183,15 +183,21 @@ def batch_unpacker(batch, args):
 def validate(val_loader, model, criterion, device, epoch, args):
     batch_time = AverageMeter()
     losses = AverageMeter()
+    
     pVA_aud_meter = AverageMeter()
     pVA_pad_meter = AverageMeter()
     pVA_meter = AverageMeter()
-    Nt_pad = AverageMeter()
-    Nt_aud = AverageMeter()
-    
+    Nt_pad_meter = AverageMeter()
+    Nt_aud_meter = AverageMeter()
+    Nts = np.zeros(len(val_loader))
+    flag_print_Nts = True if epoch == 1 else False
     img_embs_all = []
     aud_embs_all = []
-
+    pVA_aud_np_meter = np.zeros(len(val_loader))
+    pVA_pad_np_meter = np.zeros(len(val_loader))
+    pVA_np_meter = np.zeros(len(val_loader))
+    Nt_pad_np_meter = np.zeros(len(val_loader))
+    Nt_aud_np_meter = np.zeros(len(val_loader))
     
 
     tic = time.time()
@@ -202,7 +208,9 @@ def validate(val_loader, model, criterion, device, epoch, args):
     video_gen = False
     with torch.no_grad():
         end = time.time()
+
         for idx, batch in tqdm(enumerate(val_loader), total=len(val_loader)):
+            
             image, spec, audio_path, silence_vectors, nFrames = batch_unpacker(batch,args)
 
             spec = Variable(spec).to(device, non_blocking=True)
@@ -215,26 +223,37 @@ def validate(val_loader, model, criterion, device, epoch, args):
 
             imgs_out = imgs_out.to('cpu').detach()
             auds_out = auds_out.to('cpu').detach()
- 
+            T = auds_out.size(2)
 
             loss_cl = infoNCE_loss(imgs_out,auds_out, args)
             
             if args.punish_silence:
                 pVA_aud, pVA_pad, pVA, Nt_aud, Nt_pad = measure_pVA(silence_vectors, imgs_out, auds_out, nFrames)
-                pVA_aud_meter.update(pVA_aud.item(), B)
-                pVA_pad_meter.update(pVA_pad.item(), B)
-                pVA_meter.update(pVA.item(), B)
-                Nt_aud.update(Nt_aud.item(), B)
-                Nt_pad.update(Nt_pad.item(), B)
-            
                 
+                pVA_aud_meter.update(pVA_aud.item())
+                pVA_pad_meter.update(pVA_pad.item())
+                pVA_meter.update(pVA.item())
+                Nt_aud_meter.update(Nt_aud.item(),B)
+                Nt_pad_meter.update(Nt_pad.item(),B)
+                Nts[idx] = (Nt_aud.item() + Nt_pad.item())/(B*T)
+                if flag_print_Nts:
+                    print(f"Percentage of silent audio frames at batch [{idx}] = {Nt_aud.item()/(B*T):.3f}")
+                    print(f"Percentage of silent padded frames at batch [{idx}] = {Nt_pad.item()/(B*T):.3f}")
+                    print(f"Percentage of silent frames at batch [{idx}] = {Nts[idx]:.3f}")
+                
+                pVA_aud_np_meter[idx] = pVA_aud.item()
+                pVA_pad_np_meter[idx] = pVA_pad.item()
+                pVA_np_meter[idx] = pVA.item()
+                Nt_aud_np_meter[idx] = Nt_aud.item()
+                Nt_pad_np_meter[idx] = Nt_pad.item()
 
                 if args.use_wandb:
                     wandb.log({"pVA_aud_step": pVA_aud.item(), "step": wandb.run.step})
                     wandb.log({"pVA_pad_step": pVA_pad.item(), "step": wandb.run.step})
                     wandb.log({"pVA_step": pVA.item(), "step": wandb.run.step})
-                    wandb.log({"Nt_aud_step": Nt_aud.item(), "step": wandb.run.step})
-                    wandb.log({"Nt_pad_step": Nt_pad.item(), "step": wandb.run.step})
+                    # wandb.log({"Nt_aud_step": Nt_aud.item(), "step": wandb.run.step})
+                    # wandb.log({"Nt_pad_step": Nt_pad.item(), "step": wandb.run.step})
+                    
 
                 #TODO: measure mIoU
             
@@ -327,11 +346,25 @@ def validate(val_loader, model, criterion, device, epoch, args):
             .format(A_r1=A_r1, I_r1=I_r1, N=N_examples), flush=True)
         
     if args.punish_silence:
+        assert (pVA_aud_meter.avg == pVA_aud_np_meter.mean() and pVA_pad_meter.avg == pVA_pad_np_meter.mean() and pVA_meter.avg == pVA_np_meter.mean()), "The average of the meters is not equal to the mean of the numpy arrays"
+        assert (Nt_aud_meter.avg == Nt_aud_np_meter.mean() and Nt_pad_meter.avg == Nt_pad_np_meter.mean()), "The average of the meters is not equal to the mean of the numpy arrays"
         print('-  * pVA_aud {pVA_aud:.3f} pVA_pad {pVA_pad:.3f} pVA {pVA:.3f}'
             .format(pVA_aud=pVA_aud_meter.avg, pVA_pad=pVA_pad_meter.avg, pVA=pVA_meter.avg), flush=True)
-        print('-  * Nt_aud {Nt_aud:.3f} Nt_pad {Nt_pad:.3f} over {N:d} validation pairs'
-            .format(Nt_aud=Nt_aud.avg, Nt_pad=Nt_pad.avg, N=N_examples), flush=True)
-        
+        if args.use_wandb:
+            wandb.log({
+                "pVA_aud": pVA_aud_meter.avg,
+                "pVA_pad": pVA_pad_meter.avg,
+                "pVA": pVA_meter.avg,
+                # "Nt_aud": Nt_aud_meter.avg,
+                # "Nt_pad": Nt_pad_meter.avg,
+                "epoch": epoch
+            })
+        if flag_print_Nts:
+            print(f"Percentage of silent audio frames at epoch [{epoch}] = {Nt_aud_meter.avg/(B*T):.3f}")
+            print(f"Percentage of silent padded frames at epoch [{epoch}] = {Nt_pad_meter.avg/(B*T):.3f}")
+            print(f"Percentage of silent frames at epoch [{epoch}] = {Nts.mean():.3f}")
+            print(f"std Percentage of silent frames at epoch [{epoch}] = {Nts.std():.3f}")
+            flag_print_Nts = False
         
     
     print(f"Time elapsed in total{time.time()-tic}")

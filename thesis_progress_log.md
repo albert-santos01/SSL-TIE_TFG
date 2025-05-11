@@ -2522,3 +2522,114 @@ abans era
 6. Resultats de M2LVS
 
 7. Esquelet de la memoria a latex
+
+
+## After the break TIME TO Demolish
+### 05/05/2025
+We started work today and we had an amazing time with my friends at barcelona.
+
+To recap things that has to be done:
+    1. We need to test the model of Silence before we lose the weights. We downloaded the weights anyways.
+    2. We need to measure the Silence activation at the test
+    3. We need to find a paper to determine the minimum silence duration. [x]
+
+3. Paper search:
+ChatGPT has shown many paper that state the the min silence duration is usually used between 0.1 and 0.5. Regarding the threshold we have the same, dbFS at -40dB is fine
+
+### 07/05/2025
+Because of Barça we only managed to do the paper search.
+Today I would:
+1. Train a model that doesn't use the Contrastive Loss at the silent frames
+2. Build the testing of the model that uses the silence metrics as Xavier
+
+1. `Force only silence`
+- We add new opt:
+    - --not_cl_w_silence
+- Now there's only a function that cancel the silent frames  when calculating the cl_loss
+- This is only aplicable for the basic simtypes
+
+It seems to be working!!!!
+
+### 08/05/2025
+We threw the model of lambda_neg_audio = 10
+
+--After work--
+
+The model is giving normal train/val loss, however the video are awful, the model is really outside of it's scope
+Let's train the model with --not_cl_w_silence and lambda = 1
+
+Maybe we stop it in two hours
+We just stopped it
+
+WHAT WE FINISHED:
+- nCL implemented
+- pVA implemented
+- downloaded ADE20kSpeechPrompted to validate the best model against DenseAV
+- nCL it stopped at the end of the epoch...
+- pVA test had an error,
+thing to see tomorrow 
+we also need to fix `inference_maker` to add -80 vadpal
+
+### 09/05/2025
+`Sil10 thought` the smaller the activation the smaller s(a,v)^2 for generalizing
+
+Now these two jobs are launched again, it was basically stupid errors
+
+To fix the inference maker we need to change the workspace to  the old version
+Meaning that we need to clone in local the branch and move all the weights of the models desired to compute the inference
+
+What we would like to do is a model_name processer that gives the desired args
+- with regex get the keys for a dictionary of mapping
+These are the option that we used:
+"SSL_TIE_PlacesAudio-lr1e-4-B128-SISA-SdT128",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-S2Ms1571-SdT128",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-S2Me20-SdT128",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-S2Me10-SdT128",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-fMISA-SdT128",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-LVS-SdT128",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-LVSa1-SdT128-show",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-S2Me10-SdT128-show",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-M2Le12-SdT128-O1",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-MISA-SdT128-Sil-O1"
+
+
+#### REunion
+- Parlar de la feina
+- Hi ha literatura pels parametres dle silenci (librispeech i models)
+    -  pensat aquest matí treure literatura temps entre paraula estadística
+
+- not_cl_w_silence es multiplicar (1- sil vector), parlar de les mitjes. Això es backpropagable?
+    - Implementat pero model no entrena
+
+- escrit tot el testeig de silence:
+    - parlar de Nt pVA
+- ADE20KSpeechPrompted descarregat, haig de pensar la pipeline revisar els DenseAV codi
+
+
+--after
+- Change the batch unpacker in this case to give the nFrames
+- look the code of main branch
+- split pVA into two metrics 
+
+interesting note:
+>>> import numpy as np
+>>> pepe= None
+>>> jose =  np.arange(10)
+>>> jose
+array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+>>> jose[3]
+3
+>>> jose[pepe]
+array([[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]])
+>>> 
+
+### 10/05/2025
+The whole morning dedicated to the pVA splitted
+it is interesting to note the following:
+In an epoch of B = 16 we have:
+    - Nt_aud = 159
+    - Nt_pad = 1061
+    - nTotalF= 128 x B = 20248
+    - nSilent = 1220
+    - 59% of frames are silent ...
+

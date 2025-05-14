@@ -246,7 +246,7 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     progress = ProgressMeter(                             
         len(train_loader),
         # [batch_time, data_time, losses, top1_meter, top5_meter],
-        [batch_time, data_time, losses, losses_cl, losses_silence],
+        [batch_time, data_time, losses, losses_cl, losses_silence,losses_cl_ts, losses_ts],
         prefix='Epoch:[{}]'.format(epoch))
     
     model.train()
@@ -286,7 +286,7 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
         loss_cl = infoNCE_loss(imgs_out,auds_out, args,silence_vectors)
         loss_silence, mean_sim_pow2 = _negAudio_loss_handler(args,imgs_out,auds_out,silence_vectors)
 
-        loss = loss_cl + lambda_neg_audio * loss_silence
+        
 
         if args.siamese:
 
@@ -303,27 +303,30 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
                             )
             tf_equiv_loss.set_tf_matrices()
 
-            transformed_image = tf_equiv_loss.transform(image)
+            transformed_image = tf_equiv_loss.transform_image(image)
 
             # Second branch: Input_ts -> Volume_TS
             imgs_out_ts, auds_out_ts = model(transformed_image.float(), spec.float(), args, mode='train')
             loss_cl_ts = infoNCE_loss(imgs_out_ts,auds_out_ts, args,silence_vectors)
 
 
-            tvolumes_ts = torch.einsum('bhwd,btd -> bhwt',imgs_out_ts, auds_out_ts)
+            tvolumes_ts = torch.einsum('bct, bchw -> bthw',auds_out_ts, imgs_out_ts)
 
             fvolumes_ts = tf_equiv_loss.transform_volume(volumes) 
 
             loss_ts = tf_equiv_loss(tvolumes_ts, fvolumes_ts) # This is the transformation equivariance loss "Siamese network"
-            loss = 0.5*(loss_cl + loss_cl_ts) + lambda_trans_equiv * loss_ts 
+            loss = 0.5*(loss_cl + loss_cl_ts) + lambda_trans_equiv * loss_ts  + lambda_neg_audio * loss_silence
 
             #Log batch metrics to  wandb
             if args.use_wandb:
                 wandb.log({ "train_loss_step": loss.item(), "train_loss_cl_step": loss_cl.item(),
                             "train_loss_cl_ts_step": loss_cl_ts.item(), 
-                            "train_loss_ts_step": loss_ts.item(), "step": wandb.run.step})
+                            "train_loss_ts_step": loss_ts.item(),
+                            "train_loss_silence_step": loss_silence.item(),
+                            "avg(s(a,v)^2) step": mean_sim_pow2.item(),
+                             "step": wandb.run.step})
         else:
-            
+            loss = loss_cl + lambda_neg_audio * loss_silence
             #Log batch metrics to wandb
             if args.use_wandb:
                 wandb.log({ "train_loss_step": loss.item(),

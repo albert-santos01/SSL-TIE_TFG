@@ -1755,3 +1755,913 @@ Now reproduce the results of Harwarth
 2. Add folders
 3. Debug¿?
 4. Throw??
+
+# Change of repo --ZZ--
+### 16/04/2025
+14 days left (We should start writing)
+
+Apparently, the job of LVS couldn't get passed the third epoch probably because of the --stop_not_training. We have to analyse how T-epoch was affected by LVS and by logging the gradients. 
+
+First try of todo todayyy:
+1. Check why LVS stopped[x]
+2. Analyze T-epoch[x]
+3. Analyze gradients[x]
+4. Analyze Loss[x]
+5. Throw again with all the new considerations[x]
+6. Send emails and sign offerletter[x]
+    - Answer also to CSUC [x]
+    - To Sandra: After a more thoughtful consideration here's my signed job offer[x]
+    - To SDG Group[x]
+7. Try to reproduce DAVENet
+    - Bear in mind that this is to see the inferences of DAVENet and to see its training process
+    1. Add to wandb [Probably]
+    2. Set path for:
+        - Saving models
+        - Retrieve images
+        - How to access the dataset
+8. Start the plan for writing
+
+
+1-5 LVS job:
+- Indeed the model stopped bc of --stop_not_training
+- It seems that maybe it can go faster with a 1e-3, we could consider trying
+- It managed to do three epoch but not to decrease the 0.3 the validation loss
+    - We should consider now a new threshold for the stopping criteria[Changedto0.1]
+- I had a "crisis" you name it but I was concerned by those models that will not longer be available, thus, I had to check how much space we have at DATA just to store them there if its not much big of a deal
+- The T-epoch was around 1280 segs, we could say that logging the gradients didn't affect at all
+    - What happens is that we didn't thought that T-epoch  is only for the training, and that we need a new one for the full epoch process, including the validation
+- 3. Honestly there's something really wrong about the gradients, they are still very big at the input head rather than the projection. [gradients report](https://wandb.ai/albert-santos01-universitat-pompeu-fabra/VG_SSL-TIE/reports/Gradient-check--VmlldzoxMjMxNzM3Mw) At this link you can find how the gradients have evolved by  3 epochs, therefore we could genuinely throw the lvs completely
+- 4. Sorry but the loss is completely fine, the only bad thing is thatf from the first to the 3rd epoch it decreased 0.28, the train loss, thus, it didn't continue. Now we have changed the threshold to 0.1
+    - At the val_loss it seems that this one has more slope
+    - Its decreasing start compared to S2Me10 is 5k step instead of 3k, it's slope at the trainloss/step is much more slower
+
+So we throw again from start LVS and one for 3,4 epochs with the 
+They are running, `170191 tr-3_LVS` and `170189 tr_LVS`
+The one with lr 1e-3 didn't work. Thankfully that we set it to train for only 4 peochs but the stop-not-training stopped it before
+
+SO its TIME FOR DAVENeeeeeeeeeeeet :((()))
+We are going to write the  notes in the same repo
+We saw that you can track the models parameters and gradients with wandb.watch at the very beginning 
+
+#### Next tasks:
+- Add Wandb.watch to our repo
+- check wandb today
+
+### 17/04/2025
+13 days left for the mental deadline
+Good thing to note, we use the same lr than SSL-TIE
+
+#### RoadMap todayyy:
+1. Analyze results of LVS[x]
+5. Send to test LVS model[x]
+3. Download models that we may need, We may have lost some weights... [x]
+4. Do inferences of LVS model [x]
+2. Decide what to do: Retrain from a specific epoch? [x]
+- wait till the test[x]
+- Read grads log post
+6. Check if we can get the weights of DAVENet to do the inference and test the model?[x]
+7. Decide if continue to reproduce DAVENet from scracth
+8. Start writing
+9. Implement Siamese
+10. Set a calendar event to say when the model will not be available hahaha
+11. Implement noise cancellation
+
+- 1
+So we got the results of the LVS approach and they are surprising:
+    - Better `val_loss` and `train_loss` at epoch `12` 
+    - Best epoch before overfittin `20` but epoch `22` is lower
+    - The change of lr is at `29`, already to late. 
+        - It should have been done at `20-22`
+    - It stops at `34`, difference from plateu 0.333
+    - Visually it looks way worse
+    - When it overfits every thing looks almost like the opposite thing that we should do
+    - gradients still don't make sense
+
+- 2 
+We could resume the training at epoch 20 with lr 1e-5 already and set the scheduler again but honestly I would like to get the test results before
+So we skip to task 5
+
+- 5 
+First check if the model exists in SCRATCH hahah
+Somehow we got back the weights of fMISA Hurraaayy
+Eventhough we got back 166223 we are not interested because this one wasn't learning
+Okay both are being tested
+
+
+- 3
+Okay we need:
+- S2Me20
+    - 57 best val and R@
+    - 40 local minima not the best R@
+    - 20 best video
+- S2Me10
+    - 40 global minima, change of lr, best recalls
+- fMISA
+    - wait till test
+- LVS
+    - wait till test
+
+- 4
+About to do the inferences
+
+- 6
+Meanwhile the models are being downloaded
+weights are not publicly available
+
+- 7
+Let's reproduce the results from scratch jeje
+##### Super important note DAVEnet
+It results that the nframes from the train loader are the frames the output frames (128 the max) represents where the audio stops and then does zeropadding later. MAYBE IT TAKES THIS INTO CONSIDERATION IN THE LOSS CALCULATION
+
+
+### 18/04/2025 
+12 Days left 
+Well so this morning we signed and read all the documents that seQura requested me. Now this afternoon lets do some of thesis.
+
+The results of S2M10, fMISA and LVS are published. Therefore we can decide for each model the epoch to make inferences
+
+From the other part we have to resume our study of DAVEnet since we are very close to reproduce the results.
+
+Make a plan for writing the thesis is also an option.
+
+Something that I just thought is that we should see the crossmodal retrieval results to see if the model is learning the crossmodal alignment. We can do this after implementing the siamese and the noise... This comes from the idea that maybe the model even though is not retrieving the image desired we should get something similar in this case
+
+#### Today
+1. Decide the epochs to do the inferences[x]
+2. Make the inferences[x]
+3. Investigate the nframes phenomena[x]
+    Do they really train without the final silence?[x]
+4. Continue the debugging[x]
+
+1. Decide the epochs to do the inferences
+For fMISA we have:
+    - The change of lr was done at epoch 32
+    - Epoch 33 as the global minima for val loss and and global max for avg R@ 
+    - Epoch 25 show a better video
+For LVS we have:
+    - Epoch 29 best Recall
+    - epoch 22 val loss global minima and local maxima for Recalls
+    - Epoch 17 best video
+
+2. Make the inferences
+Definately, the models that we said that have better video it is the same for the other inferences. Still the model is like acting right before the semantic word is spelled and the silence is really killing every time
+
+3. Investigate the nframes phenomena
+Okay so this is an astonishing moment because we find out that the DAVEnet uses the nframes in order to compute the matchmap till that moment, thus, the zero padding is made for the input output the same but the model pays attention only where's there's noise. It should be interesting how my models act only using the similarity  against the speaker
+
+This means that their model even though generates output temporal embeddings of 128 I =[B,C,H,W] A = [B,C,T] but the matchmap is M = [B,Tc,H,W] such that Tc <= T
+
+Will this a be huge significant change in my models?
+
+The model will have the same parameters but they indeed focus on what's important in this case. 
+
+We either apply the silence regulator, or we apply this...
+Let's see how DAVEnet acts in this case
+
+After meditating it I found out that we should implement the json links system because the benefits from this are the following:
+- The testing retrieves the models from there
+    - However, We could easily loop the files in the folder
+- ModelOutputRetriever downloads from the cluster using the json links if the model is not found in local
+    - instead of implementing it we could put it directly
+Okay it doesn't make sense to spend that time
+
+We have to  ensure the cuda context 
+Since the model will try to do the crossmodal retrieval for every epoch we are going to track the time spent on validation and the whole epoch to decide if it's worth doing the validation and see how many minutes we need
+
+### 19/04/2025
+So it seems that the set up for reproducing DAVEnet is not ready yet. So this is the first thing to do.
+I assume that the results are going to take a while, thus we need to find a plan for what is next. Things to code: we still have to do the siamese and the noise cancellation. Also we should investigate why the model's inference is ahead of the solution, maybe it's the main creation of the inference but let's see how are the inferences of Harwarth. 
+We should check also if we should implement the nframes idea.
+
+#### roadmapsito
+1. Reproduce DAVEnet
+2. Make a plan for noise cancellation
+3. Make a plan for writing
+4. Start coding noise cancellation till some point 2 hours
+5. Write something 
+
+1. `Reproduce DAVEnet`
+It seems that it's running as expected. While waiting for something to happen I started reading and i think i should try to overfit SSL-TIE with the subset, I think that 640 samples is enough for the model to learn them super quickly. And With this we can see the gradients using watch
+The loss is literally not decreasing at all, despite they were only three epochs 
+
+2. `Make a plan for silence`
+The notes of the last reunion:
+Harwarth introduces random negative clips to the audio samples like it would be audio maskings, and then creates a vector of T dimensions and its like a softmax smooth threshold to indicate how much the negative audio is present.
+
+Now do statistics to decide the threshold:
+The number of unique speakers:
+- val: 271
+- train: 2683
+- together: 2683
+
+Code to be done in the cluster:
+- Load waveforms multprocessed
+
+At experiments we started creating  the stats we cannot decide with the histograms the silence threshold
+RMS is an insteresting option
+DAVEnet is aparently learning!
+
+### 21/04/2025
+I don't know what is happening but I'm not working at all, I'm dealing with a lot of stress and anxiety and I can't be fully present with the thesis
+
+The plan for this afternoon is to have a plan for tomorrow's reunion and it would be ideal to have the negtive audio detector and like a plan for writing.
+For the silence:
+1. Get dBFS 
+2. Check if it catches the ranges
+3. compare with silencedetect
+4. See if my implementation is efficient
+5. Understand how can we map this silence into the time steps of the spectrogram
+6. implement divisor
+7. Check how much time per epoch
+Tell gloria that Hamilton uses a time masking 
+Decide with gloria if this mask will have artifacts, maybe aplying a LPF to make it smoother, more Ablation Study?
+
+DAVEnet ha terminado, el cabron no tiene un stop por los 100 epochs, lo hemos dejado por 144 epochs, en el paper dicen que obtienen eso, pero el batchsize en el paper es 128, no cien, bajan el lr cada 70 epochs no cada 40. hacer report de esto.
+
+5. ``Understand how can we map this silence into the time steps of the spectrogram``
+In order to get the number of frames in the STFT the formula is:
+
+    nFrames = floor((N - window_length) / hop_length ) + 1
+
+    - N - window_length: the number of samples you can move your window
+    - floor by hop the number of times you can fit this window hopping like this
+    - +1 the first one starts by zero
+This means that a 10 sec signal with the 0.025 ms windowsize and 0.01 ms shift leads to with sr (16kHz) hop_size 160 and window_length 400:
+    - 998 nFrames and 221 nbins because the n_fft is 400 (the other half are the undersampled freqs)
+    - In the case of `center=True` you don't substract the window length because it zeropads so the last window can fit like  frame D[:, t] is centered at y[t * hop_length]
+
+We can deduce that to get the 2048 nFrames we need at least 20,495 secs the rest of audio information will be truncated
+
+So this leads us to think that Harwarth is indeed using 20 secs and not 10, with 1024 would make more sense because is not integrating in the model that much of silence.we should see anyways the results of the training.
+`Before making any decision about modifying the audio processing pipeline` Let's reproduce correctly the videos of Harwarth
+Things to note:
+    - Its truncation and padding in freq is efficient along with the truncation of the matchmap to calculate the loss
+    - To avoid more bias they use instead 1024 and not downsampling a 4th time
+
+All in all lets punish the model for silence.
+
+1. 
+
+
+
+#### Reunion for tommorrow
+- recap de la reunió anterior. testejem els models amb cpu pq el crossmodal retrieval ralentitza l'entrenament
+
+no explicarem implementacions ni procesos tecnics per arrivar-hi
+
+- Tinc els models que ens interesava ja computats i testejats
+    - fSISA
+    - S2Ms1/2
+    - S2Me20 (el que es va recomanar per slack)
+    - S2Me10 (el que van suggerir a l'última reunió)
+    - fMISA 
+
+- Com que els resultats no m'entusiasmaven vaig comprovar si els gradients feien coses amb sentit (Tasca pendent)
+    - fer un logging de gradients per cada backward
+    - mostrar report o no
+    - els gradients són més petits al projection que al input, no té rés de sentit
+    - m'agradaria reproduir el training process de ssl-tie per veure els gradients, al final tenim la mateixa lr
+
+- Vaig fer la implementació del LVS
+    - Res a comentar, simplement va ser difícil
+
+- Tots el models testejats:
+    - Mostrar WandB
+    - ans videos
+    - `fSISA`
+        - El pijtor
+        - Videos sparse, tal i com mencionava hamilton
+    - `S2Ms1/2`
+        - El millor model en Recall
+        - Val loss 2nd
+    - `fMISA`
+        - Casi com s1/2 pero pitjor, "assumim que millora el S2M"
+    - `S2Me20`
+        - Aquest no va ser aturat per la qualitat dels videos tot it que el lr no va baixar
+        - Localisation més gran
+        - val loss 2n pitjor
+        - canvi brutal al recall quan fa el switch
+    - `S2Me10`
+        - Al epoch 40 els té els millors resultats
+        - Canvi al recall al fer el switch
+        - 
+
+    - `LVS`
+        - Comença a baixar més tard, pero una vegada això va més rapid, més inclinat
+        - Es podria reentrenar, els canvis de lr arrivan tard
+        - Amb 1e-3 no entrena
+        - Comparació
+            - Epoch 12 ja guanya en Val loss i train loss
+            - Millor val_loss entre totes les configs
+            - Pitjor Recall
+            - Els videos són els pitjors, Semblant a SISA però millor
+            - Best epoch before overfittin `20` but epoch `22` is lower
+
+        
+
+
+
+
+- No m'agradaven els videos llavors a reproduïr DAVEnet per comparar pq tenim bons resultats crossmodal
+    - Explicar el fenomen de nframes:
+        - zeropad spec or truncate, truncate spec to nFrames...
+        - mostrar el paragraf del paper
+        - Qué pot significar això, El model apren el bias pero la loss surt bé?
+    - Movida del 2048 són 20 segs, té sentit 1024
+    -
+
+- probar de fer overfitting amb SSL-TIE
+    - img_aug fora
+    - només amb 64 samples
+    - gradients amb watch
+    - no molt significatiu
+
+- Negative audio:
+    - mostrar folder 
+    - Diferencies entre speakers...
+    - Hamilton introdueix silenci
+
+- Coses que estarian bé:
+    - fer comprovacions crossmodals retrievals...
+        - pq potser el model sí que fa coses amb sentit.
+
+- Pla per escriure:
+
+### 22/04/2025
+Reunion was succesfull. We noted the conclusions that Best model leads to MISA and it is interesting how the results change when switched to MISA.
+
+Roadmap
+1. Get the videos of DAVEnet [Done]
+2. Train fMISA truncating Matchmap [Done]
+3. Detect silence and punish the model 
+4. Ablation study of the LVS threshold
+5. Try to make this parameters learnable, Hamilton mentions a regularizer
+6. Start making the skeleton of the thesis
+7. Siamese
+Today 1, 2 and try to detect the silence with fast functions
+
+1. `Get the videos of DAVEnet`
+- We have all the models in the cluster DAVEnet_dump/exp_4/models
+- They go separate, imgnet and audnet:
+    - audio_model.{epoch}.pth
+    - image_model.{epoch}.pth
+
+- `RESULTS comparison`:
+    - Considering that epoch 56 has the best avg_accuracy [.276]
+    - I->A @10 Paper: .291  Me: .262 
+    - A->I @10 Paper: .314  Me: .290
+
+I think that it is interesting to see all the models video. We could do a code meant to be runned at login node and loads all the models and uploads this media to  wandb for the val_video_idx 10
+
+1. So I would do a code that given the epoch it downloads the models in local. Easy as getting the files and regex
+
+2. Code to load both models as DAVEnet
+
+3. Do the inferences truncating the similarity map  
+
+After thinking about the significance of the temporal dimension in the similarity volume we found out that we were using the wrong frame rate for doing the videos, we did the following report at slack:
+
+    Hola bona tarda!
+    Os escric perquè he trobat una cosa important. Gràcies en haver investigat a fons el significat de la dimensió temporal final (128), doncs m'he adonat que no feia bé les inferències. 
+    Os comento:
+    Aquests 128 frames de similaritat temporal provenen dels 2048 frames freqüencials del Espectrograma, (el model fa 4 downsamplings= reducció de 2^4)
+    Aquests 2048 frames provenen de fer la STFT a una senyal de 20.48 segons perquè s'utilitza una finestra que s'aplica cada 0.01 segons
+    Ara bé, no tots els àudios de PlacesAudio són 20.48 segons, llavors el que fa Harwarth et al. 2018 és truncar l'espectrograma resultant si és més gran que 2048 frames freqüencials i zero padding si és més petit.
+
+    Os adjunto una fotografia d'un àudio de 6.64 segons. Al model li entra com a input el MelSpectrogram, com veieu més de la meitat són tot zeros, això fa que el model aprengui amb un bias no desitjat. Harwarth, ho soluciona truncant el volum de similaritats per calcular la loss i Hamilton et al. 2024 castiga el model si s'activa quan hi ha silenci, jo no faig res encara.
+
+    Això ho hem comentat a la reunió però el que jo os volia dir aquí és que tot i que no faig res per lidiar amb el bias, els meus models fan coses amb sentit.
+
+    Fins ara, les inferències que os he mostrat semblaven que l'activació del model anava avançada a l’àudio, tot i que localitzava correctament el subjectes mencionats. Doncs això te a veure a que jo utilitzava els 128 frames de similaritat i feia els vídeos amb un frame rate de 12.8 fps per obtenir vídeos de 10 segons. Clar, això no està bé perquè tot es comprimeix. Això fa que el video de l'activació amb la informació  fins el zero padding estarà a fins els 3.24 segons (41.5 frames) en el cas de l’àudio d'exemple de 6.64 segons.  
+    Llavors al entendre que per fer l'espectrograma de 2048 frames freqüencials és necessita una senyal de 20.48 segons, doncs això vol dir que el frame rate de les inferències ha de ser 128/20.48= 6.25 fps .
+
+    Amb aquesta freqüència de mostreig doncs els vídeos surten amb sentit i la seva activació ja fa coses rares quan l’àudio original s’ha acabat. Os mostro un vídeo com els feia al passat i com han de ser ara. Tot aquesta nova informació no treu que hem de provar de truncar els mapes de similaritat com Harwarth i castigar el model quan s'activa en el context de negative audio com Hamilton, però almenys anem pel bon camí.
+
+### 23/04/2025
+From what we proposed yesterday, we ended up making the `MatchmapVideoGenerator` and Abstract class so we can do the inference with the architechture decided, in this case DAVEnet or SSL-TIE. The videos of DAVEnet are really bad, again if we truncate the matchmap till the zeropadding we should make the fps accordingly, so not the nFrames/20.48. Therefore we don't truncate the matchmap to make the video inference. 
+I think that my results of DAVEnet are not that far away from the original, please note that he considers his best model the one that it is pretrained. I assume that our model really benefits from the img augmentations and maybe our audio encoder architechture creates better audio features. Therefore, makes sense all the process behind SSL-TIE
+
+2. ``Train fMISA truncating Matchmap``
+Just add some flags and add the nFrames 
+Therefore we need the flags at:
+    1. _getitem_(idx)[done]
+    2. Need to change the trainloader( maybe a flag in the for??)[done]
+    3. model, then do the division[Done]
+    4. InfoNCE loss see if we can truncate with nF [Done]
+        We ended up making another function for creating the matrix of volumes which they are masked and then the average considers only the unmasked ones
+
+it is not possible to aud[:,:,:nFrames] because every n_frame is different and tensors need to be rectangular
+
+There are two ways to truncate it:
+1. Or making the similarity frame all to zero and do an average according to the nonzero values
+2. or cutting the temporal dimension in the audios like harwarth, this leadsme to a two nested loops
+
+
+Now it is time for debugging:
+- check the spec at [:,nFrames] !=0? yesssss it is zero always
+- By debugging, it seems that already the similarity when it reached to padded frames it seems that it is already low like 1e-3 compared to values to 0.02...
+- Finished debugging:
+    - of args.truncate_matchmap is not activated the nFrames = None works as expected giving sij.mean(-1) == sij.sum(-1)/nFrames
+    - By being activated it seems that it works since s_outsmasked > s_outs since it takes less low values as mentioned in the previous bulletpoint
+ 
+- Let's throw the model ``fMISA-SdT128TrC``
+Done:)
+
+3. `Detect Silence`
+We need to finish this in one hour.
+Lets try the librosa function
+The function of claude is amazing we still have to decide if to use the floor cealing
+We should apply this to the cropped signals, longer than 20.48n nnoppe
+
+TO DO:
+- Arreglar val_loader[Done]
+- Lanzar otra vez[Done]
+- Probar trim [Done]
+- Descubrir is floor or cealing[Done]
+- Meter en el train loader los silencios, 
+    - estaria bien que dividamos por  el ratio desde model
+- dot product con mean de el volumen de similaridades al cuadrado  con vector de silencios
+- Lanzar
+
+### 24/04
+The models aren't being trained, thus, we have to check why:
+- The models didn't continue their training due to instianation of MatchmapVideoGenerator ABC class
+- Lets check if the torch.set
+To Do: 
+1. Lanzar fMISA Show 4 epochs[Done]
+    - In an hour we will know if the models are being trained or not
+    - Just compare train_loss_step with a normal fMISA
+2. Check if floor or cealing: 
+    We are going to use round... when len(y_db) after this is nFrames therefore they will be cancelled indeed
+3. I works perfectly fine and audio and the spectrogram you can't barely notice the clipping
+
+fMISA cannot be reproduced, something is going on:
+- Params for training are all the same if we don't consider the new ones like log_grads and epoch 3 instead of 100
+    - LVS was trained with them but not with the watch ones
+- Difference in commit since LVS:
+    - main_efficient:
+        - the prints
+        - the ifs of truncate matchmap
+    - util.py:
+        - The only thing that could affect here is the mean by nFrames
+
+We are trying right now to reproduce LVS:
+
+We changed again the nFrames mean as what it was, if not the only thing that maybe is affecting the computation is wandb.watch(model)
+Therefore we send fMISAshow again...
+
+Things we have to do:
+1. Throw truncated model
+2. Apply to train loader Silence (send only the matrix in t_freq)
+    1. model does the division and creates the vector
+    2. Apply the L2 normalization
+    3. Throw model
+3. Ablation study of LVS params
+4. Make parameters learnable (Another model and do if args.x import modelx as model kachow)
+5. Time regularisation
+6. Siamese
+
+
+fMISA is still not being able to be reproduced, I have no idea for what's happening
+LVS seems to be reproducable, thus, lets do the ablation study, the parameters of the first run are the following:
+"tri_map": true,
+"Neg": true,
+"epsilon": 0.65,
+"epsilon2": 0.4,
+
+So now we do:
+--epsilon 0.5 \
+--espilon2 0.35 \
+trimap and neg, (recall that neg is hard negatives, backgrounds)
+call it `LVSa1`
+
+Debugging notes
+Nothing seems out of the normal order, we made another repo restore it to the version where LVS worked and MISA presumably too.
+We setted all the seed, even the ones that lacked at each epoch
+By debugging, we had the same results, Old and Current
+We launched two jobs to see if the model really with both, if not, Ill checkout where fMISA was madeee  
+
+``LVSa1`` is givin astonishing results compared to LVS normal, I think it is pretty interesting to study the effects of the parameters
+
+### 25/04
+5 days left...
+
+`LVSa1` finished and gave better results. However, qualitatively they are worse, given the quality of the videos. Time to test them.
+
+TO do:
+- we have to prepare the reunion
+- check how can we fix fMISA
+- run truncate
+- run LVSa2
+- Implement approaches that we learned
+
+#### Reunió
+- Si està Xavi, recap primordial:
+    - Situació d'abans: 
+        - Models no entrenen
+        - La meva quota al cluster perillava
+        - Havíem de d'aplicar nou processament d'audio obtenir els 128 frames de similaritat
+    - Ara:
+        - specs de DAVEnet han fet que els models entrenin amb lr 1e-4
+        - L'operació de crossmodal retrieval no és pot fer en el run de l'entrenament
+            - Tensor de 97 Gb (malgastament de recursos) -> utilitzar partició de cpus efficientment
+        - Models testejats:
+            - SISA
+                - El pitjor ni val loss ni recalls
+            - S2M epoch or step
+                - Val loss molt guay però recalls fan un canvi brutal al fer el switch
+                - El millor el que fa el switch a la meitat de l'epoch
+                - Això es fa per la teoria que ajuda als gradients a orientar-se (currículum learning)
+            - fMISA
+                - Com S2Ms1/2 
+                - Vol dir que el MISA es lo millor
+            - LVS
+                - Implementat (idea que es un mix de SISA amb MISA)
+                - Millor val loss
+                - el més ràpid a convergir
+                - Recall semblant a SISA
+                - Videos horribles
+                    - Teoria albert el model li costa entendre bé els hard negatives, Background, per la naturalesa de PlacesAUDIO massa
+                    - Solució, Currículum Learning
+        - Els models els hi afecta molt el final:
+            - Problema del processament de DAVEnet
+            - DAVEnet els trunca
+            - Hamilton castiga al model when silence
+            - Nosaltres: Probar les dues coses
+
+        - He reproduït DAVEnet Harwart 2018
+            - Fatal? Ara ho parlem
+    - Suposo que em deixo algo:
+        - Inferencies: Entendre bé els significat dels frames
+
+Desde el dimarts:
+- Gràcies a mapejar els silencis al similarity domain. Descobert el perquè de les inferències anaven avançades. El fps ha de ser 6.25 20.48 segons audio dona 2048 stft frames que 128 downsampling de 4
+
+- He reproduir DAVEnet.
+    - `RESULTS comparison`:
+    - Considering that epoch 56 has the best avg_accuracy [.276]
+    - I->A @10 Paper: .291  Me: .262 
+    - A->I @10 Paper: .314  Me: .290
+    - Segurament no tinc els mateixos que el paper pq el paper es diferència molt amb el codi:
+        - Input 2048 output 128, no 1024 a 128
+        - No diuen el nombre d'epochs exacte (they say less than 150, pero tenen un while true...)
+        - Batch size al paper 128 codi 100
+        - lr decay cada 70 pero al codi 40 i ja feia overfitting al 40...
+
+    - Videos:
+        - Avegades millor i altres no
+        - Mostrar idx 10 i 40
+        - S2M too
+    
+- Detecció de silenci de manera vectoritzada ja esta implementada
+
+- Truncar l'espectrograma  no és facil
+    - aud[:,:,:nFrames] no -> tensors han de ser rectangulars...
+    - Dues maneres:
+        - Com harwarth, nested  for loops...
+        - Fer la similaritat zero als frames passats i després quan average  fer-ho associat per no fer bias
+            - Ho he aconseguit fer amb masking no fent fors adicionals
+            - He suposat que funciona comprovant que s_outsmasked > s_outs
+            - El codi d'abans fa les coses que hauria de fer o sigui el no truncat
+    - Llançat ->  No entrena, alguna cosa ha passat en el codi
+
+- Caos total el models no poden ser reproduïts
+    - Per comprovar he intentat reproduïr els resultats almenys pel començament de fMISA i negatiu, no entrena
+    - He fet mil comparacions de codi per veure que he tocat i res significant 
+    - Només el càlcul de similaritats aleshores LVS hauria d'entrenar
+        - Si, entrena reproduint lo mateix"", llavors Ablation a 
+        "tri_map": true,
+        "Neg": true,
+        "epsilon": 0.65,
+        "epsilon2": 0.4,
+
+        So now we do:
+        --epsilon 0.5 \
+        --espilon2 0.35 \
+        trimap and neg, (recall that neg is hard negatives, backgrounds)
+        call it `LVSa1`
+    - Continuem intentar trobar l'error:
+        - clonar els repos de quan fMISA era reproduible
+            - quan LVS
+            - quan fMISA original
+        - Reproduïbles però no fan lo mateix, començan a baixar més tard
+        - Primer mean tots iguals ...
+        - Mirar lo dels seeds
+    - Suposició que m'ha vingut fa una hora:
+        - S2m es primordial?
+        - Els maxims del principi, pot no funcionar...?
+        - En 10 mins ho sabrem
+    - Clar el temps a la merda CAOS TOTAL
+        - no puc fer els altres entrenaments ni començar a redactar, el problema segueix xd
+
+- Bueno resultats de LVSa1:
+    - Baixa més que el LVS
+    - Recall, ni idea... s'està testejant
+    - videos horribles
+
+- Comentar treball
+    - emocionalment fatal 24/7 tfg
+
+            
+### 26/04
+1. We could also throw S2Me10 with new code to check if it really works [ItDoesn'twork:(]
+    1. Throw truncate matchmap with S2Me10 if it works three epochs...[BetterNot]
+2. Throw MISA to LVS with `old1` code [Done]
+3. Check LVSa1 test results and say which weights do i have to download [Done]
+4. Send template to gloria to get the full space
+5. Do another branch at `old1 code` and introduce silence...
+
+
+1. `Check if main brach doesn't work`
+    Just thrown the S2Me10 for 3 epochs, basically it will be fSISA. recall that somehow it didn't work in the past and it was fixed by detaching the val features... and changing again to val_video_freq to 10
+    
+    `Interesting`: It is not that it takes more `steps` to the model to decrease the train_loss_step graph it is just that these new models have to do more steps (wandb.logs) than the previous ones of course.
+
+    We should make those graphs according with an x axis associated to the number of training samples already seen
+
+    From this i would like to see a video, instead of waiting two hours i could download the weights after doing an epoch
+
+2. `MISA to LVS`
+    made a new branch called working_version and it changing the code from there. It is published to github 
+    To debug it that it wont go to MISA just do a batch and then set args.LVS let see what happens It would definately work
+    
+    `when should we switch`
+    From epoch 3 MISA already knows how to localise but the recall values are incrediblely low, thus
+    At epoch 12 we have the change at val loss, Since the recall is the highest because of how it localises it may add ways to decrease the val loss
+        - What I think that it is going to happen is that when there's silence it will start to localise the background and the recall will go down really easy
+    
+    Just think that if we don't calculate the similarity when there's silence I assume that the recall will go crazy and this is because adding similarity when there's silence it will lead to add redundancy. However maybe the model already knows how to avoid this bias
+        fMISA in my opinion it only changes its localisation in the appearance of a new word.
+        
+
+3. `LVSa1`
+    - epoch 32 best recall but really bad video 2nd best val
+    - epoch 25 best val, videos are better than 32, there's a spike in recall
+        - Super interesting note: The model when there's silence it is integrating everything but the subjects
+            - It would be interesting to see how the silence cancellation works here
+            -<Val loss here> is veeeery confusing, at the a model can have a better similarity score if when there's silence it integrates everything that is background, of course this average in general works...
+    At epoch 32 everything seems more sparse that's probalby
+    - less trained models do the same as epoch 25 but they localise more general ... therefore epoch 25 is a better model
+    [FINISHED]
+
+5. `Punish silence`
+    - We found out that maybe we should find the silent ranges after the preemphasis because the signal has reduced, probably noise and redundancy. But I would definately do an ablation study of what works best
+    - At the end we are sending the vector every time in  the getime of the data loader
+    - Even though it wasn't a significant change claude avoided the for loop again
+    - the sim vector is also truncated given nframes well it seems that theres a problem
+        - it is not possible that the audio is shorter than 20.48 and we have silence after nframes, check it out 
+    CHECK ALL THE THINGS TO COMMIT specially the OPT.PY add this new args like the padding to the slurm
+
+
+### 27/04/2025
+
+Silence is almost finished, we need to fix it, and do a check. I would do a toy example or download a the first sample of subset and see the audio, the way to do it could be by changing none to the getitem
+We should start writing today and do a minimini plan of the trip in barcelona, in special attention to the friday's party. Write again the email in a more friendly way to cristina.
+MISA2LVS is now being tested. Code that it is still remaining are the learnable parameters, Siamese, time regularisation...
+
+ROADMAP:
+1. Fix silence
+    1. Fix the nframes[x]
+    2. avoid hardcoding[pass]
+    3. Do toy example[itseems]
+    - modify the getitem
+    - Add the l2 normalization
+    4. Throw
+2. Start writing (we could go to Barcelona)
+    1. Open the template
+    2. Do the skeleton
+    3. Put some ideas in each bullet
+    4. Start writing the related work?
+3. Mini plan
+    1. Comunicate your plan
+
+
+1. `FIX THE SILENCE`
+    We fixed it, it was basically using the whole duration to calculate the stft regardless of the padding
+    `The code is hardcoded` It is futile to make it modular so it assumes that the target length is 2048 -> 128
+
+    2. About to debug
+    It works and all the modifications before changing the main were correctedly computed
+
+    Now we have to debug if the code is correct
+    `New task` WE have to find a nice lambda for the silence regularizer
+
+    4. throw
+    Sim loss is 2.87 in debugging
+    and silence loss is 0.011
+    the normal mean is 0.010
+    This is not alright, thus,  we are going to throw first a lambda of 1  and see how it evolves becase something like *30 maybe it makes such significant difference to not let the model activate
+    but padval_spec -80 activates a little more
+
+    Throwing an example of 2 epochs showed that the silence loss is rapidly decreased
+    I think that the model is training,  but let's check more safely, we need more steps
+
+### 28/04/2025
+
+Idea of report while meditating: Give a middle qualitative comparative with how is the trimap constructed when there's silence and when there isn't when it's punished.
+
+So today is mean't to be used for start writing. Before I could do some code that would be relevant for the silence analysis.
+
+TODAY:
+1. Do graphs of average similarity vs weighted y silence frames
+2. Throw MISA-Sil with lambda 100
+3. Do skeleton
+4. Write a lot of Related work
+5. Do idea of miniplan.
+6. Duolingo
+
+`VIDEOS for M2LVSe12`
+- 33 because it has the best Acc
+- 25 has the best val loss
+- 20 good video
+- It is interesting to see that the more epochs the more that model is looking at the middle only. and the less the models moves a lot more, i really recommend to analyse the videos according from 10 to 13 (12 is the switch)
+- lets download the switch also
+
+
+### Reunion
+1. Última oportunitat el codi nou amb reproducció de S2Me10 i no
+
+2. Fer una nova `branch` desde últim model correctament entrenat (LVS):
+    - MISA funciona
+    - tot es reproduible
+
+3. `MISA to LVS`
+    - El codi una mica raro pq els he definit com diferent losses
+        - Debuguejat i tot correcte
+    
+    - Quan fer el canvi:
+        - Mostrar gràfica
+        - Canvi al epoch 12
+        - i ja al 3 ja localitza
+        Supposisició k vaig fer una vegada de LVS:
+        - What I think that it is going to happen is that when there's silence or stopwords it will start to localise the background and the recall will go down really easy
+
+    - fMISA in my opinion it only changes its localisation in the appearance of a new subject word.
+
+
+4. resultats LVSa1
+--epsilon 0.5 \  
+--espilon2 0.35 \
+abans era
+"epsilon": 0.65,
+"epsilon2": 0.4,
+    - epoch 32 best recall but really bad video 2nd best val
+    - epoch 25 best val, videos are better than 32, there's a spike in recall
+
+    - aquí es veu molt bé lo de subjectes vs stopwords
+
+5. Punish silence:
+    - Per detectar funció vectoritzada
+    - La solució més fàcil que he pensat es enviar els vectors del train loader
+    - Esta hardcodejat al specs de HArwarth
+    - Implementat el weighted average
+    - Al introduir el  padding de -80 el silenci agafava pes
+    - lambda 1
+    - apagada
+
+6. Resultats de M2LVS
+
+7. Esquelet de la memoria a latex
+
+
+## After the break TIME TO Demolish
+### 05/05/2025
+We started work today and we had an amazing time with my friends at barcelona.
+
+To recap things that has to be done:
+    1. We need to test the model of Silence before we lose the weights. We downloaded the weights anyways.
+    2. We need to measure the Silence activation at the test
+    3. We need to find a paper to determine the minimum silence duration. [x]
+
+3. Paper search:
+ChatGPT has shown many paper that state the the min silence duration is usually used between 0.1 and 0.5. Regarding the threshold we have the same, dbFS at -40dB is fine
+
+### 07/05/2025
+Because of Barça we only managed to do the paper search.
+Today I would:
+1. Train a model that doesn't use the Contrastive Loss at the silent frames
+2. Build the testing of the model that uses the silence metrics as Xavier
+
+1. `Force only silence`
+- We add new opt:
+    - --not_cl_w_silence
+- Now there's only a function that cancel the silent frames  when calculating the cl_loss
+- This is only aplicable for the basic simtypes
+
+It seems to be working!!!!
+
+### 08/05/2025
+We threw the model of lambda_neg_audio = 10
+
+--After work--
+
+The model is giving normal train/val loss, however the video are awful, the model is really outside of it's scope
+Let's train the model with --not_cl_w_silence and lambda = 1
+
+Maybe we stop it in two hours
+We just stopped it
+
+WHAT WE FINISHED:
+- nCL implemented
+- pVA implemented
+- downloaded ADE20kSpeechPrompted to validate the best model against DenseAV
+- nCL it stopped at the end of the epoch...
+- pVA test had an error,
+thing to see tomorrow 
+we also need to fix `inference_maker` to add -80 vadpal
+
+### 09/05/2025
+`Sil10 thought` the smaller the activation the smaller s(a,v)^2 for generalizing
+
+Now these two jobs are launched again, it was basically stupid errors
+
+To fix the inference maker we need to change the workspace to  the old version
+Meaning that we need to clone in local the branch and move all the weights of the models desired to compute the inference
+
+What we would like to do is a model_name processer that gives the desired args
+- with regex get the keys for a dictionary of mapping
+These are the option that we used:
+"SSL_TIE_PlacesAudio-lr1e-4-B128-SISA-SdT128",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-S2Ms1571-SdT128",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-S2Me20-SdT128",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-S2Me10-SdT128",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-fMISA-SdT128",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-LVS-SdT128",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-LVSa1-SdT128-show",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-S2Me10-SdT128-show",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-M2Le12-SdT128-O1",
+"SSL_TIE_PlacesAudio-lr1e-4-B128-MISA-SdT128-Sil-O1"
+
+
+#### REunion
+- Parlar de la feina
+- Hi ha literatura pels parametres dle silenci (librispeech i models)
+    -  pensat aquest matí treure literatura temps entre paraula estadística
+
+- not_cl_w_silence es multiplicar (1- sil vector), parlar de les mitjes. Això es backpropagable?
+    - Implementat pero model no entrena
+
+- escrit tot el testeig de silence:
+    - parlar de Nt pVA
+- ADE20KSpeechPrompted descarregat, haig de pensar la pipeline revisar els DenseAV codi
+
+
+--after
+- Change the batch unpacker in this case to give the nFrames
+- look the code of main branch
+- split pVA into two metrics 
+
+interesting note:
+>>> import numpy as np
+>>> pepe= None
+>>> jose =  np.arange(10)
+>>> jose
+array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+>>> jose[3]
+3
+>>> jose[pepe]
+array([[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]])
+>>> 
+
+### 10/05/2025
+The whole morning dedicated to the pVA splitted
+it is interesting to note the following:
+In an epoch of B = 16 we have:
+    - Nt_aud = 159
+    - Nt_pad = 1061
+    - nTotalF= 128 x B = 20248
+    - nSilent = 1220
+    - 59% of frames are silent ...
+
+### 11/05/2025
+
+PLAN:
+1. Check with a late epoch that the aud_embedding is negative in its whole 
+2. Answer gloria on what we did to the SSL-TIE
+3. Test the two fMISA weights that we have
+4. Do some of the Siamese, 2 hours max
+5. Do sketch of resume
+6. Do introduction
+7. Start Related work
+8. 
+
+1.---
+It's really negative, which makes sense since the spectrograms forwarded are almost negative everywhere.
+The image embedding has also negatives values.
+
+2.---
+Done. We only have the two linear conv to make the C dim from 512 to 1024
+SSL-TIE spec is also almost negative everywhere
+
+3.---
+Let's try to reunite every model that we have to get the results pVA. To see if our silence cancellation works. Start first with the fMISA and then we see
+
+Done, as expected, the model with SIL is has the best values.
+Moreover, the early models of MISA2LVS have really good metrics compared to the other
+the results are in the cluster at the old repo main
+
+4.--- till 8pm
+
+5.--- till we go to sleep
+
+

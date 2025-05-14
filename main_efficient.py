@@ -56,6 +56,7 @@ from utils.util import topk_accuracies, similarity_matrix_bxb, \
       vis_loader, prepare_device, vis_heatmap_bbox, tensor2img, \
       sampled_margin_rank_loss, computeMatchmap, vis_matchmap, infoNCE_loss, negAudio_loss
 from utils.tf_equivariance_loss import TfEquivarianceLoss
+from utils.volumetric_equiv_loss import VolumeTransformEquivarianceLoss
 
 from datetime import datetime
 
@@ -289,28 +290,31 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
 
         if args.siamese:
 
-            match_map_b = torch.einsum('bhwd,btd -> bhwt',imgs_out, auds_out)
+            #From branch 1: Input ->  Volume -> fVolume_TS
+            volumes = torch.einsum('bct, bchw -> bthw', auds_out, imgs_out)
 
-            tf_equiv_loss = TfEquivarianceLoss(
+            tf_equiv_loss = VolumeTransformEquivarianceLoss(
                             transform_type='rotation',
                             consistency_type=args.equi_loss_type,
                             batch_size=B,
                             max_angle=args.max_rotation_angle,
                             input_hw=(224, 224),
+                            output_hw=(14,24)
                             )
             tf_equiv_loss.set_tf_matrices()
 
             transformed_image = tf_equiv_loss.transform(image)
 
-            # Second branch of the siamese network
+            # Second branch: Input_ts -> Volume_TS
             imgs_out_ts, auds_out_ts = model(transformed_image.float(), spec.float(), args, mode='train')
-            loss_cl_ts = sampled_margin_rank_loss(imgs_out_ts, auds_out_ts, margin=1., simtype=args.simtype)
-            # top1_ts, top5_ts = calc_topk_accuracy(out_ts, target, (1,5))
+            loss_cl_ts = infoNCE_loss(imgs_out_ts,auds_out_ts, args,silence_vectors)
 
-            match_map_b_ts = torch.einsum('bhwd,btd -> bhwt',imgs_out_ts, auds_out_ts)
 
-            ts_match_map = tf_equiv_loss.transform(match_map_b) # TODO: Modify for 3rd order tensor
-            loss_ts = tf_equiv_loss(match_map_b_ts, ts_match_map) # This is the transformation equivariance loss "Siamese network"
+            tvolumes_ts = torch.einsum('bhwd,btd -> bhwt',imgs_out_ts, auds_out_ts)
+
+            fvolumes_ts = tf_equiv_loss.transform_volume(volumes) 
+
+            loss_ts = tf_equiv_loss(tvolumes_ts, fvolumes_ts) # This is the transformation equivariance loss "Siamese network"
             loss = 0.5*(loss_cl + loss_cl_ts) + lambda_trans_equiv * loss_ts 
 
             #Log batch metrics to  wandb

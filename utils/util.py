@@ -1179,7 +1179,6 @@ class MatchmapVideoGenerator:
             "-map", "1:a",  # Audio stream from second input
             "-c:v", "copy",  # Copy video codec (no re-encoding)
             "-c:a", "libmp3lame",  # Encode audio in mp3 format
-            "-t", "10",  # 10 sec duration
             temp_output
         ]
         

@@ -232,6 +232,66 @@ def batch_unpacker(batch, args):
         silence_vector = None
     return image, spec, audiofile, silence_vector
 
+#  Function that creates the loss formula
+def loss_formulation(
+    loss_cl_input, 
+    loss_silence_input, 
+    lambda_neg_audio_input, 
+    lambda_trans_equiv_input,
+    loss_cl_ts_input, 
+    loss_ts_input, 
+    args
+):
+    if args.siamese and args.punish_silence:
+        return 0.5 * (loss_cl_input + loss_cl_ts_input) + lambda_trans_equiv_input * loss_ts_input + lambda_neg_audio_input * loss_silence_input
+    elif args.siamese and not args.punish_silence:
+        return 0.5 * (loss_cl_input + loss_cl_ts_input) + lambda_trans_equiv_input * loss_ts_input
+    elif not args.siamese and args.punish_silence:
+        return loss_cl_input + lambda_neg_audio_input * loss_silence_input
+    else:
+        return loss_cl_input
+    
+def log_batch_wandb_metrics(loss_pack_input,s_av_pp2,args_input):
+            if args_input.use_wandb:
+                wandb.log({
+                        "train_loss_step": loss_pack_input[0].item(),
+                        "avg(s(a,v)^2) step": s_av_pp2.item(),
+                        "step": wandb.run.step
+                        })
+                    
+                if args_input.siamese:
+                    wandb.log({
+                            "train_loss_cl_step": loss_pack_input[0].item(),
+                            "train_loss_cl_ts_step": loss_pack_input[4].item(),
+                            "train_loss_ts_step": loss_pack_input[5].item(),
+                            "step": wandb.run.step
+                            })
+                if args_input.punish_silence:
+                    wandb.log({
+                            "train_loss_silence_step": loss_pack_input[1].item(),
+                            "step": wandb.run.step
+                            })
+                    
+def log_epoch_metrics_wandb(losses_pack_input, epoch_input, args_input):
+    if args.use_wandb:
+        wandb.log({
+            "train_loss_epoch": losses_pack_input[0].avg,
+            "train_loss_cl_epoch": losses_pack_input[1].avg,
+            "epoch": epoch_input
+        })
+        if args_input.siamese:
+            wandb.log({
+                "train_loss_cl_ts_epoch": losses_pack_input[3].avg,
+                "train_loss_ts_epoch": losses_pack_input[4].avg,
+                "epoch": epoch_input
+            })
+        if args_input.punish_silence:
+            wandb.log({
+                "train_loss_silence_epoch": losses_pack_input[2].avg,
+                "epoch": epoch_input
+            })
+
+
 
 def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     # torch.set_grad_enabled(True)
@@ -315,34 +375,28 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
             fvolumes_ts = tf_equiv_loss.transform_volume(volumes) 
 
             loss_ts = tf_equiv_loss(tvolumes_ts, fvolumes_ts) # This is the transformation equivariance loss "Siamese network"
-            loss = 0.5*(loss_cl + loss_cl_ts) + lambda_trans_equiv * loss_ts  + lambda_neg_audio * loss_silence
+            # loss = 0.5*(loss_cl + loss_cl_ts) + lambda_trans_equiv * loss_ts  + lambda_neg_audio * loss_silence
 
-            #Log batch metrics to  wandb
-            if args.use_wandb:
-                wandb.log({ "train_loss_step": loss.item(), "train_loss_cl_step": loss_cl.item(),
-                            "train_loss_cl_ts_step": loss_cl_ts.item(), 
-                            "train_loss_ts_step": loss_ts.item(),
-                            "train_loss_silence_step": loss_silence.item(),
-                            "avg(s(a,v)^2) step": mean_sim_pow2.item(),
-                             "step": wandb.run.step})
         else:
-            loss = loss_cl + lambda_neg_audio * loss_silence
-            #Log batch metrics to wandb
-            if args.use_wandb:
-                wandb.log({ "train_loss_step": loss.item(),
-                            "train_loss_cl_step": loss_cl.item(),
-                            "train_loss_silence_step": loss_silence.item(),
-                            "avg(s(a,v)^2) step": mean_sim_pow2.item(),
-                            "step": wandb.run.step})
+            loss_cl_ts = torch.tensor(0.0, device=loss_cl.device)  # Use a tensor with the same device as loss_cl
+            loss_ts = torch.tensor(0.0, device=loss_cl.device)  # Use a tensor with the same device as loss_cl
+            # loss = loss_cl + lambda_neg_audio * loss_silence
+            
+        loss_pack = [loss_cl, loss_silence, lambda_neg_audio, lambda_trans_equiv, loss_cl_ts, loss_ts]
+
+        loss = loss_formulation(*loss_pack, args)
+    
+            
+        # Log to WANDB
+        log_batch_wandb_metrics(loss_pack, mean_sim_pow2, args)
 
 
         losses.update(loss.item(), B)
         losses_cl.update(loss_cl.item(), B)
         losses_silence.update(loss_silence.item(), B)
-        if args.siamese:
-            losses_cl_ts.update(loss_cl_ts.item(), B) 
-            losses_ts.update(loss_ts.item(), B) 
-        
+        losses_cl_ts.update(loss_cl_ts.item(), B) 
+        losses_ts.update(loss_ts.item(), B) 
+    
         
         optim.zero_grad()
         loss.backward()
@@ -373,20 +427,10 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
     wandb.log({"T-epoch": time.time()-tic, "epoch": epoch}) if args.use_wandb else None
 
     
-    # Log the epoch metrics to # wandb
-    if args.use_wandb:
-        if args.siamese:
-            wandb.log({
-                        "train_loss_epoch": losses.avg,
-                        "train_loss_cl_epoch": losses_cl.avg, "train_loss_cl_ts_epoch": losses_cl_ts.avg,
-                        "train_loss_ts_epoch": losses_ts.avg, "epoch": epoch})
-        else:
-            
-            wandb.log({"train_loss_epoch": losses.avg, "epoch": epoch})
-            wandb.log({"train_loss_cl_epoch": losses_cl.avg, "epoch": epoch})
-
-        if args.punish_silence:
-            wandb.log({"train_loss_silence_epoch": losses_silence.avg, "epoch": epoch})
+    # Log the epoch metrics to  WANDB
+    losses_pack = [losses, losses_cl, losses_silence, losses_cl_ts, losses_ts]
+    log_epoch_metrics_wandb(losses_pack, epoch, args)
+                
 
     print('Epoch: [{0}][{1}/{2}]\t'
         'T-epoch:{t:.2f}\t'

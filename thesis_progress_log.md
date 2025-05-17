@@ -2661,7 +2661,67 @@ Moreover, the early models of MISA2LVS have really good metrics compared to the 
 the results are in the cluster at the old repo main
 
 4.--- till 8pm
-
+I think that we started to understand, we first did the prompt of Claude and we started building the whole toy example 
+and it showed to us that there was something weird with the volume.
 5.--- till we go to sleep
 
 
+### 12/05/2025
+We fixed the tf for the volume by making two separate tfs but indentical in terms of the random things but the sizes are different
+in order to deal with the volume
+We started maybe with the summary, I don't think so. Either we adapted the main for the siamese or that
+
+### 13/05/2025
+We started writing in the morning and the afternoon the summary and we finished it almost at midnight.
+
+### 14/05/2025 
+Siamese debugging done and fix the last errors gave the following results for the first batch (B=16) from the PlacesAudioSubset:
+function: 
+        loss = 0.5*(loss_cl + loss_cl_ts) + lambda_trans_equiv * loss_ts  + lambda_neg_audio * loss_silence
+
+loss_cl = 2.7827
+loss_cl_ts = 2.7804
+loss_silence = 0.0012
+-lambda_neg_audio = 1
+loss_ts = 0.0009
+-lambda_trans_equiv = 1
+loss =  2.7836
+
+At the paper they mention that Lgeo is set to 2.0, since both formulas are different then they make sense.
+
+We throw a model without punishing the silence, thus, given the code we expect the silence to be zero at the graph  
+
+
+### Reunion TFG
+- Comentar normalització nova dels videos
+    - Els videos de M2LVS tenen més sentit
+- Tenim els resultats de Recall de Sil
+    - Bàsicament iguals que els de fMISA
+- Calculat només el pVA
+    - Normalitzar els frames across all the time t
+    - Stats de frames en silenci
+        - In an epoch of B = 16 we have:
+        - Nt_aud = 159
+        - Nt_pad = 1061
+        - nTotalF= 128 x B = 20248
+        - nSilent = 1220
+        - 59% of frames are silent ...
+    - Resulta que el model actua per igual per ot
+
+
+### 16/05/2025
+So at the reunion we made enphasis to make another validation set to in order to get better metrics
+
+Therefore:
+    - create new split [Done]
+    - Decide which video to use for the val_vide_freq [Done]
+    - Train again the models [Done]
+        But the model didn't train
+
+### 17/05/2025
+- Order githubs
+- Check what happened 
+- Train at least 5 models
+- Do introduction
+- Fix Siamese
+- Start related work

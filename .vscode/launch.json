@@ -140,7 +140,7 @@
             ],
         },
         {
-            "name": "Train PlacesAudio subset spec_DAVENet",
+            "name": "fMISA Train PlacesAudio subset spec_DAVENet",
             "type": "debugpy",
             "request": "launch",
             "program": "main_efficient.py",

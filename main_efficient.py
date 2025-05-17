@@ -299,7 +299,7 @@ def train_one_epoch(train_loader, model, criterion, optim, device, epoch, args):
                             batch_size=B,
                             max_angle=args.max_rotation_angle,
                             input_hw=(224, 224),
-                            output_hw=(14,24)
+                            output_hw=(14,14)
                             )
             tf_equiv_loss.set_tf_matrices()
 

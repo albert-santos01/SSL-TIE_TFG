@@ -425,11 +425,14 @@ def main(args):
     print(f"\tFirst epoch {keys[1]}, Last epoch {keys[-1]}")
 
     #Check if it's still available to use (7 days after its creation)
-    if epochs_data["parameters"]== "Jose Antonio Santos":
-        args.get_nFrames = True
-    elif not check_if_available(epochs_data):
+    
+    if not check_if_available(epochs_data):
         raise RuntimeError("The model is no longer available for testing. It has exceeded the 7-day availability period.")
-
+    
+    # Set get_nFrames to True
+    args.get_nFrames = True
+    print(f"get_nFrames set to {args.get_nFrames}")
+    
     #Dataset
     args.img_path, args.model_path, args.exp_path = set_path(args)
     
@@ -438,6 +441,11 @@ def main(args):
     print("Creating Data loaders with %d workers" % args.n_threads)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False,\
         num_workers=args.n_threads, drop_last=True, pin_memory=True)
+
+    print("Data loaders created")
+    print(f"Number of batches in val_loader: {len(val_loader)}")
+    print(f"Number of examples in val_loader: {len(val_loader.dataset)}")
+    print(f"Number of original examples/ batch_size requested: {len(val_loader.dataset)/args.batch_size}")
 
     if args.MISA_2_LVS_epoch != 0:
         print(f"MISA_2_LVS_epoch at {args.MISA_2_LVS_epoch}")

@@ -237,7 +237,7 @@ class AVDataset(ABC, Dataset):
         hop_length = int(sample_rate * window_stride)
 
         # load audio, subtract DC, preemphasis
-        y, sr = librosa.load(file, sample_rate)
+        y, sr = librosa.load(file,sr=sample_rate)
         if y.size == 0:
             y = np.zeros(200)
         y = y - y.mean()
@@ -248,7 +248,7 @@ class AVDataset(ABC, Dataset):
             window=self.windows.get(window_type, self.windows['hamming']))
         spec = np.abs(stft)**2
         if audio_type == 'melspectrogram':
-            mel_basis = librosa.filters.mel(sr, n_fft, n_mels=num_mel_bins, fmin=fmin)
+            mel_basis = librosa.filters.mel(sr=sr, n_fft=n_fft, n_mels=num_mel_bins, fmin=fmin)
             melspec = np.dot(mel_basis, spec)
             logspec = librosa.power_to_db(melspec, ref=np.max)
         elif audio_type == 'spectrogram':

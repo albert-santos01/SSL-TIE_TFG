@@ -61,9 +61,9 @@ class AVDataset(ABC, Dataset):
         self._init_atransform()
         self.video_files = []
         self.audio_conf = {}
-        self.windows = {'hamming': scipy.signal.hamming,
-        'hann': scipy.signal.hann, 'blackman': scipy.signal.blackman,
-           'bartlett': scipy.signal.bartlett}
+        self.windows = {'hamming': np.hamming,
+        'hann': np.hanning, 'blackman': np.blackman,
+           'bartlett': np.bartlett}
 
     def _init_transform(self):
         mean = [0.485, 0.456, 0.406]

@@ -2719,9 +2719,155 @@ Therefore:
         But the model didn't train
 
 ### 17/05/2025
-- Order githubs
-- Check what happened 
+- Order githubs [Done] 
+- Check what happened [Done]
+    Basically it is not convenient to add zero terms add the loss formulation, thus we compute the formula  just as it is
+    there's a new function that handles this, wether there's silence or siamese activation
 - Train at least 5 models
 - Do introduction
 - Fix Siamese
 - Start related work
+
+We have the following problem:
+    - We did the new train split and added the video that we wanted  at the end, meaning that it won't be consider in the val_loader therefore. we have to options to do this:
+        - do another Shuffling and add it at the 1024 and retrain fMISA  meaning 0.01 UDays wasted
+        - Just permute so it can enter
+    - since it is 0.01Days just FUCK IT BRO
+
+After introducing the new samples to the validation new split, all the fMISA apparently they can't manage to learn. We have tried already twice.
+For convenience we tried SISA configuration and it learned as expected.
+### 18/05/2025
+
+It seems that starting with MISA it can easily fall in into a local minima and not learn at all.
+
+Therefore by starting doing averages across the spatial domain, the gradients will be warmed up and will eventually start to learn.
+
+Yesterday we put a lot of references in the bib.tex and we started to do the introduction, 2/5 of it probably has beedn done
+Also LVS was thrown
+
+### 19/05/2025
+Just woke up and saw that the model LVS is taking aloooot of time, more than the double of normal one
+I dont think that there's a problem in the coding of the loss, my main assumption is that the loading of data is somehow not efficient rn
+
+let's us try to do the S2Me10
+The same thing happened!!!!!
+
+
+### 20/05/2025
+Let's see how can we fix this thing:
+We know that fSISA was trained with the new train set and did had a t-epoch of 1300 which is the usual thing
+-last commit before fSISA
+
+The models trained from LVS had this problem with a t.epoch of 3300
+
+### 21/05/2025
+The problem is solved, it was due to library incosistencies and by creating a new env with newer libs we managed to reduce t-epoch to 15mins. This could be reduced even more if we use use cuda `12.1`
+
+NOW do test results of S2Me10 and throw another model:
+- First try throw fMISA if not simulate a S2Me1 ~= fMISA [done]
+- Then do a links_epoch json with
+    - weights of fMISA till epoch 8[done]
+    - from 9 to inf with the new links of S2Me10 [done]
+- Write introduction or die [done]
+
+### 22/05/2025
+Things that we could do:
+- Put to test fMISA [Done]
+- Put to train a model [Done]
+- Start writing related work
+- Do a doc to choose the best model []
+- Write reunion
+
+
+
+
+### 23/05/2025
+Today before starting work:
+- Put to test fLVS
+    - first add  the old links [Done]
+    - launch [Done]
+
+- Check availability of first model to train:
+    - If we are in a hurry do the choosing the model today
+    - If not wait for the afternoon
+
+- Prepare reunion
+
+
+Reunio:
+- He fet un random pick del trainset de 1023 imatges random seed de 42 ( reproduïble)
+- Vaig dedicar un moment a fer un codi per trobar la noia i el far i afegirla pel video qualitatiu del WandB
+
+
+- A la vegada que feia la intro: 
+    - fMISA no m'hi entrenava.  [Això està solucionat però és interessant el procés]
+        - 1era hipòtesi: 
+            - A la formulació del loss no pots afegir termes 0.
+            - Solució: Fer un handler de la formulació
+
+    - fSISA entrenava però no fMISA:
+        - 2na Hipòtesi:
+            - Ja que la diferència entre fSISA i fMISA és només max i average. Llavors l'únic que es pot dir que fer Màxims porta al model a atraparse a un mínim local molt aviat.
+            - Solució: Provar d'intentar-ho cert nombre de vegades (Suposició del fake seed de pytorch)
+                Molt costós
+            - Possible solució: fMISA = 
+
+
+    - Intentem fer LVS:
+        - Ajudo a un company per la comprovació d'una cosa a un node del cluster. 
+            - Mala práctica: Vaig utilitzar el meu entorn i vaig descarregar una llibreria amb pip 
+        
+        - La reproducció trigava el doble
+            - Codi igual
+            - perquè mismatch de llibreries
+            - Solució fer de nou l'entorn. 
+                - Com no haig de reproduir resultats d'altres papers puc innovar amb llibreries sempre i quan no hagi de fer canvi de codi. 
+                - No he comprobat si podia amb `cuda 12.1` però he innovat amb `cuda 11.8`.
+                - Ara 13 mins per epoch al entrenament i ara al validation (crossmodal retrieval i pVA) 1-2hores en comptes de 12 hores
+    - Reprodueixo el models S2Me10 resumint de SISA i LVS dels antics i tal, i fMISA funciona
+    - Ara haig de fer MISA 2 LVS  decidir a quina epoch
+
+- Introducció feta 
+
+- M'he organitzat per tindre la memòria pel 9 de juny
+
+Preguntes per demà:
+- LVs amb altres parametres¿
+
+- Millor bibliografia en ordre alfabetica no?
+- per aprofitar la sessió preguntes de latex:
+    - Bibtex ha de ser oficial o li puc posar coses que hi manquen:
+        - com el doi
+        - hi ha alguns que queda molt lleig
+    - Es poden quotes?
+    - que és això de lot, lof...
+- Es pot mencionar un paper  que no s'hagi mencionat al related work? Voldria ns si era Afouras aquel de 
+first average i després máxim.
+- How to cite a section.
+- AUC with pIA?
+- A related work menciono que harwarth fa zero padding al spectrograma, ho critico a aquí? o a experiments quan mencioni el meu audio encoder o a experiments a comprovar l'efecte del silenci??...
+- Podria fer la reunió el 26
+26 10:10
+
+- Posar les conferencies. desde scholar
+    Configuracions del google per a que surit el bibtexar
+- mencion
+
+- et al. pero sense l'any
+
+- Provar de fer el precision y accuracy. en comptes de Recall
+
+
+Recap de la reunion, todo okay, que siga así:
+
+
+Now, things to do today:
+1. Do the models doc for SISA and S2Me10 [Done]
+- Check comments 
+- With LVS and MISA results decide when should we do the change of epoch
+- Put to train MISA with silence [True]
+- Put to train MISA with siamese 
+- Put
+
+
+

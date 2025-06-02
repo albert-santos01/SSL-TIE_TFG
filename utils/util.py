@@ -22,6 +22,8 @@ import wandb
 from PIL import Image
 from datetime import datetime, timedelta
 from opts import get_arguments
+from abc import ABC, abstractmethod
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
     def __init__(self):
@@ -1195,6 +1197,198 @@ class MatchmapVideoGenerator:
     def create_video_with_audio(self, output_path, audio_path):
         self.create_video(output_path)
         self.add_audio_to_video(output_path, audio_path)
+
+class ABCMatchmapVideoGenerator(ABC):
+    def __init__(self,device,img, spec, matchmap,nomalize_volumes_thw=True):
+        super().__init__()
+        self.device = device
+        self.device = device
+        self.spec = Variable(spec.unsqueeze(0)).to(device, non_blocking=True) if spec.dim() == 3 else Variable(spec).to(device, non_blocking=True)
+        self.image = Variable(img.unsqueeze(0)).to(device, non_blocking=True) if img.dim() == 3 else Variable(img).to(device, non_blocking=True)
+        self.matchmap = matchmap
+        self.n_thw = nomalize_volumes_thw
+
+    
+    @abstractmethod
+    def compute_matchmap(self):
+        pass
+    
+    def normalize_img(self, value, vmax=None, vmin=None):
+        '''
+        Normalize heatmap
+        '''
+        vmin = value.min() if vmin is None else vmin
+        vmax = value.max() if vmax is None else vmax
+        if not (vmax - vmin) == 0:
+            value = (value - vmin) / (vmax - vmin)  # vmin..vmax
+        return value
+    
+    def get_frame_match(self, img_np, matchmap_np, frame_idx):
+        assert img_np.ndim == 3, "img_np should be a 3D numpy array"
+        assert matchmap_np.ndim == 3, "matchmap_np should be a 3D numpy array"
+
+        matchmap_i = matchmap_np[frame_idx]
+        matchmap_i = cv2.resize(matchmap_i, dsize=(224, 224), interpolation=cv2.INTER_LINEAR)
+        if self.n_thw:
+            pass
+        else:
+            matchmap_i = self.normalize_img(matchmap_i)
+        matchmap_i_photo = (matchmap_i * 255).astype(np.uint8)
+        matchmap_i_photo = cv2.applyColorMap(matchmap_i_photo, cv2.COLORMAP_JET)
+        matchmap_i_photo = cv2.addWeighted(matchmap_i_photo, 0.5, img_np, 0.5, 0)
+        return matchmap_i_photo
+    
+    def create_video_f(self,img_np, matchmap_np, output_path="matchmap_video.mp4", fps=1):
+        n_frames = matchmap_np.shape[0]
+        
+        # Make sure img_np is in uint8 format
+        if img_np.dtype != np.uint8:
+            img_np = (img_np * 255).astype(np.uint8)
+        
+        # Make sure img_np has correct dimensions (224, 224, 3)
+        if img_np.shape[:2] != (224, 224):
+            img_np = cv2.resize(img_np, (224, 224))
+        
+        # Use proper codec for compatibility
+        # For better compatibility, try 'avc1' or 'H264' instead of 'mp4v'
+        fourcc = cv2.VideoWriter_fourcc(*'avc1') 
+        
+        # Alternative codec options if 'avc1' doesn't work:
+        # fourcc = cv2.VideoWriter_fourcc(*'H264')
+        # fourcc = cv2.VideoWriter_fourcc(*'XVID')  # More compatible but lower quality
+        
+        out = cv2.VideoWriter(output_path, fourcc, fps, (224, 224))
+        
+        if not out.isOpened():
+            print("Failed to create VideoWriter. Trying alternative codec...")
+            # Try with different codec
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            out = cv2.VideoWriter(output_path.replace('.mp4', '.avi'), fourcc, fps, (224, 224))
+        
+        for i in range(n_frames):
+            frame = self.get_frame_match(img_np, matchmap_np, i)
+            
+            # Ensure frame is the correct format
+            if frame.dtype != np.uint8:
+                frame = (frame * 255).astype(np.uint8)
+                
+            # Ensure frame has the right shape
+            if frame.shape[:2] != (224, 224):
+                frame = cv2.resize(frame, (224, 224))
+                
+            # Verify frame is BGR (OpenCV's default format)
+            if len(frame.shape) == 3 and frame.shape[2] == 3:
+                out.write(frame)
+            else:
+                print(f"Warning: Frame {i} has incorrect format. Shape: {frame.shape}")
+        
+        out.release()
+        print(f"Video created at: {output_path}")
+        
+        # Verify the file was created and has a non-zero size
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            print(f"Success! Video file created: {os.path.getsize(output_path)} bytes")
+        else:
+            print("Error: Video file was not created properly")
+    
+    def create_video(self,output_path):
+        img_np = self.image[0].cpu().numpy()
+        img_np = np.transpose(img_np, (1, 2, 0))
+        img_np = self.normalize_img(img_np)
+        img_np = (img_np * 255).astype(np.uint8)
+        img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+
+        if self.matchmap is None:
+            self.matchmap = self.compute_matchmap()
+
+        if self.n_thw:
+            self.matchmap = normalize_volumes(self.matchmap.unsqueeze(0))
+            self.matchmap = self.matchmap.squeeze(0)
+
+        matchmap_np = self.matchmap.cpu().numpy()
+        n_frames = matchmap_np.shape[0]
+        self.create_video_f(img_np, matchmap_np, output_path, fps=n_frames/20.48) # 10 sec duration
+
+    def add_audio_to_video(self, video_path, audio_path):
+        """
+        Add audio to video using ffmpeg and overwrite the output file if it exists.
+        """
+        temp_output = "temp_output.mp4"
+        
+        # Ensure the audio file exists
+        if not os.path.exists(audio_path):
+            raise Exception("Error: Audio file not found.")
+
+        # Use ffmpeg to merge audio and video
+        command = [
+            "ffmpeg",
+            "-y",  # Overwrite output files without asking
+            "-i", video_path,  # Input video
+            # "-stream_loop", "-1",  # Infinite loop for audio
+            "-i", audio_path,  # Input audio
+            "-map", "0:v",  # Video stream from first input
+            "-map", "1:a",  # Audio stream from second input
+            "-c:v", "copy",  # Copy video codec (no re-encoding)
+            "-c:a", "libmp3lame",  # Encode audio in mp3 format
+            temp_output
+        ]
+        
+        try:
+            subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
+            if os.path.exists(temp_output):  # Ensure the temporary file exists
+                os.remove(video_path)  # Delete the original video file
+                shutil.move(temp_output, video_path)  # Rename the temporary file
+            else:
+                raise Exception("Error: Temporary output file not created.")
+        except subprocess.CalledProcessError as e:
+            raise Exception(f"Error during ffmpeg execution: {e.stderr.decode('utf-8')}")
+
+    def create_video_with_audio(self, output_path, audio_path):
+        self.create_video(output_path)
+        self.add_audio_to_video(output_path, audio_path)
+
+
+
+
+
+
+class MatchmapVideoGeneratorDAVEnet(ABCMatchmapVideoGenerator):
+    def __init__(self, audio_model, image_model, nFrames, device, img, spec, matchmap=None):
+        super().__init__(device, img, spec, matchmap)
+        self.audio_model = audio_model
+        self.image_model = image_model
+        self.nFrames = nFrames
+
+    def computeVolume(self,I,A):
+        assert(I.dim() == 3)
+        assert(A.dim() == 2)
+        D = I.size(0)
+        H = I.size(1)
+        W = I.size(2)
+        T = A.size(1)                                                                                                                     
+        Ir = I.view(D, -1).t()
+        matchmap = torch.mm(Ir, A)
+        matchmap = matchmap.view(H, W, T)  
+        return matchmap
+
+    def compute_matchmap(self):
+        # get the output features
+        self.audio_model.eval()
+        self.image_model.eval()
+        with torch.no_grad():
+            img_out = self.image_model(self.image)
+            aud_out = self.audio_model(self.spec)
+
+            # pooling_ratio = round(self.spec.size(-1) / aud_out.size(-1))
+
+            # nF = nFrames//pooling_ratio
+
+            self.matchmap = self.computeVolume(img_out[0],aud_out[0])
+            self.matchmap = self.matchmap.permute(2, 0, 1)  # Permute to get [Tc, H, W]
+        return self.matchmap 
+
+
+
 
 
 def load_model(ckpt_path, args):

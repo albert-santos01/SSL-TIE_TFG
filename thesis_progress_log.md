@@ -2870,4 +2870,75 @@ Now, things to do today:
 - Put
 
 
+### 24/05/2025
+We fixed the paragraph of extremely weekly supervision giving mor context
+We fixed some comments the only one remanining is the one that depends on citing some work
+We put train MISA with silence but it didn't learn ... we try the S2Me2 approach. IT WORKED!!!
 
+#### For next reunion
+By rereading Hamilton, in section 2 I got that when in mentions the paper for sound source localization the third reference doesn't fit because it's a visual grounding paper. `Self-supervised representation learning for speech using visual grounding and masked language modeling.`  Is this a problem? hahah
+
+
+### 25/05/2025
+Sil and Siam managed to train!!! Therefore  let's try the hybrid approach. Today let's do the following:
+- Finish `Related Work`
+- Put to test both models!
+If you do both I will be very happy and please start Methods if you can!
+
+Now I was just thinking that how that possible that the model is able to learn by doing a max operation when this is not differentiable.
+
+#### To comment on slack
+- Opineu que hauria de documentar Mixtures of Sounds? Crec que ja es out-of-scope of this work
+#### Paper that I really didn't read
+- SimCLR
+- MoCo
+
+#### Pregunta
+LVS solo hace match InfoNCE con V -> A? o hace como nosotros y hamilton?
+
+### 27/05/2025
+- With LVS and MISA results check when do we have to do the change of epoch
+    - Decided 20 then with 10 I would use a Sil config
+    
+- So today just to try we have launched a LVS-SilSiam but apparently it is the worst model!
+- Just write finish the Related Work
+
+- Important we decided the models for testing for all the ones that we have available [Done]
+
+### 30/05/2025 Reunion
+- El pla per aquest dilluns tindre Related Work
+    - al cap de setmana vaig aconseguir fins casi VSSL
+- Siamesa va funcionar!
+- Algunes configs doncs no aprenien amb fMISA llavors vaig tirar de S2Me2
+    - MISA-Sil
+    - MISA-Siam
+- Pero MISA-SilSiam sí
+
+- Les gràfiques de silenci demostren que el regularizer funciona
+
+- La configuració de Siamese no aporta grans novetats
+
+- Mirar videos
+
+- Comentar el que he vist 
+
+- LVS va molt rapid llavors fer un learning stage.
+
+
+
+### 02/06/2025
+We have the result of fMISA against the SpeechPromptedADE20k of Hamilton et al. 2024. We have probably the best results reported to be a network from scratch.
+
+Maybe DINO was also paired with notations, but i think it is done in a self-supervised manner.
+
+#### NOTE
+`NOTE`: fLVS with Sil Siam LEARNS TO LOCALIZE BUT NOTHING FOR CROSS-MODAL RETRIEVAL
+
+
+#### SUPER IMPORTANT TASKS TO DO
+- Use DAVEnet against our benchmark of pVA
+- Test all the model against benchmark!
+- Check if possible to use DenseAV for our benchmark!
+
+``FIRST ADAPT DAVEnet FOR pVA``
+- Do the inference maker for DAVEnet
